@@ -21,6 +21,7 @@ def get_invoice_number(file):
 # Funksjon for å lese PDF-filen og hente ut relevante data
 def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
+        valid_units = {"M", "M2", "STK"}  # Legg til flere gyldige enheter om nødvendig
         with pdfplumber.open(file) as pdf:
             data = []
             start_reading = False
@@ -43,27 +44,27 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                     if start_reading:
                         columns = line.split()
                         if len(columns) > 3:
-                            # Sjekk om varenummer er 7-sifret
                             item_number = columns[0]
                             if not (item_number.isdigit() and len(item_number) == 7):
                                 continue
 
-                            # Beskrivelse, mengde, enhet og pris-logikk
-                            description = " ".join(columns[1:-3]) 
+                            description = " ".join(columns[1:-3])
                             try:
-                                # Konverter til riktig format
                                 quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
                                 unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
                                 total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
 
                                 # Identifiser enhet og antall korrekt ved å sjekke bakfra
                                 unit = None
-                                if description.split()[-1].isalpha():
+                                if columns[-4] in valid_units:
+                                    unit = columns[-4]
+                                    description = " ".join(columns[1:-4])
+                                elif description.split()[-1] in valid_units:
                                     unit = description.split()[-1]
                                     description = " ".join(description.split()[:-1])
                                 
-                                if description.split()[-1].isdigit():
-                                    quantity = float(description.split()[-1])
+                                if description.split()[-1].replace(',', '').isdigit():
+                                    quantity = float(description.split()[-1].replace(',', '.'))
                                     description = " ".join(description.split()[:-1])
 
                             except ValueError as e:
@@ -73,7 +74,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             data.append({
                                 "UnikID": f"{invoice_number}_{item_number}" if invoice_number else item_number,
                                 "Varenummer": item_number,
-                                "Beskrivelse": description,
+                                "Beskrivelse": description.strip(),
                                 "Antall": quantity,
                                 "Enhetspris": unit_price,
                                 "Totalt pris": total_price,
@@ -128,7 +129,6 @@ def main():
                 st.write("Sammenligner data...")
                 merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
 
-                # Numerisk konvertering
                 merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
                 merged_data["Antall_Tilbud"] = pd.to_numeric(merged_data["Antall_Tilbud"], errors='coerce')
                 merged_data["Enhetspris_Faktura"] = pd.to_numeric(merged_data["Enhetspris_Faktura"], errors='coerce')
