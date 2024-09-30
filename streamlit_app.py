@@ -23,7 +23,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
-            start_reading = False
+            start_reading = False  # Kontrollvariabel for å starte innsamlingen av data
 
             for page in pdf.pages:
                 text = page.extract_text()
@@ -33,63 +33,32 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                 
                 lines = text.split('\n')
                 for line in lines:
+                    # Start innsamlingen etter å ha funnet "Artikkel" eller "VARENR" basert på dokumenttypen
                     if doc_type == "Tilbud" and "VARENR" in line:
                         start_reading = True
-                        continue
+                        continue  # Hopp over linjen som inneholder "VARENR" til neste linje
                     elif doc_type == "Faktura" and "Artikkel" in line:
                         start_reading = True
-                        continue
+                        continue  # Hopp over linjen som inneholder "Artikkel" til neste linje
 
                     if start_reading:
                         columns = line.split()
-                        if doc_type == "Tilbud" and len(columns) > 3 and columns[0].isdigit() and len(columns[0]) == 7:
-                            item_number = columns[0]
-                            description = " ".join(columns[1:-3])
-                            try:
-                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
-                            except ValueError as e:
-                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
-                                continue
-
-                            # Del opp beskrivelsen bakfra og plasser verdier i riktig kolonne
-                            description_parts = description.split()
-                            last_value = description_parts[-1]
-
-                            if last_value.isdigit():  # Antall finnes
-                                antall_tilbud = int(last_value)
-                                description = " ".join(description_parts[:-1])
-                                enhet = description_parts[-2] if len(description_parts) > 1 else None
-                                if enhet in ["M", "STK"]:
-                                    description = " ".join(description_parts[:-2])
-                                else:
-                                    enhet = None
-                            else:
-                                antall_tilbud = None
-                                enhet = None
-
-                            data.append({
-                                "UnikID": item_number,
-                                "Varenummer": item_number,
-                                "Beskrivelse_Tilbud": description,
-                                "Antall_Tilbud": antall_tilbud,
-                                "Enhetspris_Tilbud": unit_price,
-                                "Totalt pris": total_price,
-                                "Type": doc_type,
-                                "Enhet": enhet
-                            })
-
-                        elif doc_type == "Faktura" and len(columns) >= 5:
-                            item_number = columns[1]
+                        if len(columns) >= 5:  # Forventer at vi har nok kolonner i linjen
+                            item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
                             if not item_number.isdigit():
-                                continue
-                            
-                            description = " ".join(columns[2:-3])
+                                continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
+                                
+                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
                             try:
-                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                # Juster for riktig plassering av kolonner for tilbud
+                                if doc_type == "Tilbud":
+                                    quantity = float(columns[-4].replace('.', '').replace(',', '.')) if columns[-4].replace('.', '').replace(',', '').isdigit() else columns[-4]
+                                    unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                    total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                else:
+                                    quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                    unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                    total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
                             except ValueError as e:
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
@@ -98,13 +67,12 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             data.append({
                                 "UnikID": unique_id,
                                 "Varenummer": item_number,
-                                "Beskrivelse_Faktura": description,
-                                "Antall_Faktura": quantity,
-                                "Enhetspris_Faktura": unit_price,
+                                "Beskrivelse": description,
+                                "Antall": quantity,
+                                "Enhetspris": unit_price,
                                 "Totalt pris": total_price,
                                 "Type": doc_type
                             })
-
             if len(data) == 0:
                 st.error("Ingen data ble funnet i PDF-filen.")
                 
@@ -112,6 +80,21 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     except Exception as e:
         st.error(f"Kunne ikke lese data fra PDF: {e}")
         return pd.DataFrame()
+
+# Funksjon for å splitte opp kolonnene riktig
+def split_columns(dataframe, doc_type):
+    if doc_type == "Tilbud":
+        dataframe["Antall_Tilbud"] = dataframe["Beskrivelse"].apply(lambda x: re.findall(r'(\d+)$', x)[0] if re.findall(r'(\d+)$', x) else None)
+        dataframe["Enhet_Tilbud"] = dataframe["Beskrivelse"].apply(lambda x: re.findall(r'(M|STK)$', x)[0] if re.findall(r'(M|STK)$', x) else None)
+        dataframe["Beskrivelse_Tilbud"] = dataframe["Beskrivelse"].apply(lambda x: re.sub(r'(\d+\s)?(M|STK)?$', '', x).strip())
+        dataframe["Enhetspris_Tilbud"] = dataframe["Antall"]
+        dataframe.drop(columns=["Antall"], inplace=True)
+
+    elif doc_type == "Faktura":
+        dataframe["Antall_Faktura"] = dataframe["Beskrivelse"].apply(lambda x: re.findall(r'(\d+)$', x)[0] if re.findall(r'(\d+)$', x) else None)
+        dataframe["Beskrivelse_Faktura"] = dataframe["Beskrivelse"].apply(lambda x: re.sub(r'\d+$', '', x).strip())
+
+    return dataframe
 
 # Funksjon for å konvertere DataFrame til en Excel-fil
 def convert_df_to_excel(df):
@@ -142,6 +125,10 @@ def main():
             st.info("Laster inn tilbud...")
             offer_data = extract_data_from_pdf(offer_file, "Tilbud")
 
+            # Splitte opp kolonnene
+            offer_data = split_columns(offer_data, "Tilbud")
+            invoice_data = split_columns(invoice_data, "Faktura")
+
             if not offer_data.empty:
                 # Lagre tilbudet som Excel-fil
                 offer_excel_data = convert_df_to_excel(offer_data)
@@ -155,25 +142,13 @@ def main():
 
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
-                merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
-
-                # Konverter kolonner til numerisk
-                merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
-                merged_data["Antall_Tilbud"] = pd.to_numeric(merged_data["Antall_Tilbud"], errors='coerce')
-                merged_data["Enhetspris_Faktura"] = pd.to_numeric(merged_data["Enhetspris_Faktura"], errors='coerce')
-                merged_data["Enhetspris_Tilbud"] = pd.to_numeric(merged_data["Enhetspris_Tilbud"], errors='coerce')
-
-                # Finne avvik
-                merged_data["Avvik_Antall"] = merged_data["Antall_Faktura"] - merged_data["Antall_Tilbud"]
-                merged_data["Avvik_Enhetspris"] = merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]
-                avvik = merged_data[(merged_data["Avvik_Antall"].notna() & (merged_data["Avvik_Antall"] != 0)) |
-                                    (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0))]
+                merged_data = pd.merge(offer_data, invoice_data, left_on="Varenummer", right_on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
 
                 st.subheader("Avvik mellom Faktura og Tilbud")
-                st.dataframe(avvik)
+                st.dataframe(merged_data)
 
                 # Lagre kun artikkeldataene til XLSX
-                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse_Faktura", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris"]]
+                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris"]]
                 
                 # Konverter DataFrame til XLSX
                 excel_data = convert_df_to_excel(all_items)
@@ -182,7 +157,7 @@ def main():
                 
                 st.download_button(
                     label="Last ned avviksrapport som Excel",
-                    data=convert_df_to_excel(avvik),
+                    data=convert_df_to_excel(merged_data),
                     file_name="avvik_rapport.xlsx"
                 )
                 
