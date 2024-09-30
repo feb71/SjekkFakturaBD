@@ -10,7 +10,6 @@ def get_invoice_number(file):
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
-                st.write("PDF-tekst fra faktura:", text)  # Viser hele teksten fra PDF-siden for feilsøking
                 match = re.search(r"Fakturanummer\s*[:\-]?\s*(\d+)", text, re.IGNORECASE)
                 if match:
                     return match.group(1)
@@ -24,7 +23,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
-            start_reading = False  # Legg til en kontrollvariabel for å starte innsamlingen av data
+            start_reading = False  # Kontrollvariabel for å starte innsamlingen av data
 
             for page in pdf.pages:
                 text = page.extract_text()
@@ -32,11 +31,8 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                     st.error(f"Ingen tekst funnet på side {page.page_number} i PDF-filen.")
                     continue
                 
-                st.write(f"Leser tekst fra side {page.page_number} i PDF-filen...")  # For feilsøking
                 lines = text.split('\n')
                 for line in lines:
-                    st.write(f"Linje fra PDF: {line}")  # For feilsøking av innhold i PDF-linjen
-                    
                     # Start innsamlingen etter å ha funnet "Artikkel" eller "VARENR" basert på dokumenttypen
                     if doc_type == "Tilbud" and "VARENR" in line:
                         start_reading = True
@@ -49,7 +45,10 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                         columns = line.split()
                         if len(columns) >= 4:
                             item_number = columns[0]  # Forventer at dette er artikkelnummeret
-                            description = " ".join(columns[1:-4])  # Justert for å fange flere kolonner i beskrivelsen
+                            if not item_number.isdigit():
+                                continue  # Skipper linjer der første element ikke er et gyldig artikkelnummer
+                                
+                            description = " ".join(columns[1:-4])  # Fanger flere kolonner i beskrivelsen
                             try:
                                 # Fjern tusenskilletegn og konverter til float
                                 quantity = float(columns[-4].replace('.', '').replace(',', '.')) if columns[-4].replace('.', '').replace(',', '').isdigit() else columns[-4]
@@ -136,7 +135,7 @@ def main():
                 st.subheader("Avvik mellom Faktura og Tilbud")
                 st.dataframe(avvik)
 
-                # Lagre alle varenummer til XLSX
+                # Lagre kun artikkeldataene til XLSX
                 all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse", "Antall", "Enhetspris", "Totalt pris"]]
                 
                 # Konverter DataFrame til XLSX
