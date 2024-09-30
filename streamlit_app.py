@@ -23,7 +23,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
-            start_reading = False  # Kontrollvariabel for å starte innsamlingen av data
+            start_reading = False
 
             for page in pdf.pages:
                 text = page.extract_text()
@@ -33,22 +33,19 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                 
                 lines = text.split('\n')
                 for line in lines:
-                    # Start innsamlingen etter å ha funnet "Artikkel" eller "VARENR" basert på dokumenttypen
                     if doc_type == "Tilbud" and "VARENR" in line:
                         start_reading = True
-                        continue  # Hopp over linjen som inneholder "VARENR" til neste linje
+                        continue
                     elif doc_type == "Faktura" and "Artikkel" in line:
                         start_reading = True
-                        continue  # Hopp over linjen som inneholder "Artikkel" til neste linje
+                        continue
 
                     if start_reading:
                         columns = line.split()
                         if doc_type == "Tilbud" and len(columns) > 3 and columns[0].isdigit() and len(columns[0]) == 7:
-                            # Tilbud: vi forventer at første kolonne er et 7-sifret varenummer
-                            item_number = columns[0]  
-                            description = " ".join(columns[1:-3])  # Beskrivelsen er mellom VARENR og prisdetaljer
+                            item_number = columns[0]
+                            description = " ".join(columns[1:-3])
                             try:
-                                # Fjern tusenskilletegn og konverter til float
                                 quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
                                 unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
                                 total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
@@ -67,12 +64,11 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             })
 
                         elif doc_type == "Faktura" and len(columns) >= 5:
-                            # Faktura: bruker eksisterende logikk
-                            item_number = columns[1] 
+                            item_number = columns[1]
                             if not item_number.isdigit():
-                                continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
+                                continue
                             
-                            description = " ".join(columns[2:-3])  
+                            description = " ".join(columns[2:-3])
                             try:
                                 quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
                                 unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
@@ -94,7 +90,25 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
             if len(data) == 0:
                 st.error("Ingen data ble funnet i PDF-filen.")
                 
-            return pd.DataFrame(data)
+            df = pd.DataFrame(data)
+
+            # Oppdater for tilbud og faktura basert på instruksjonene
+            if doc_type == "Tilbud":
+                df["Enhetspris_Tilbud"] = df["Antall"]  # Flytt verdien fra Antall til Enhetspris_Tilbud
+                df["Beskrivelse"].fillna("", inplace=True)
+
+                # Les kolonne bakfra for å dele opp i flere kolonner
+                df["Enhet"] = df["Beskrivelse"].apply(lambda x: x.split()[-1] if len(x.split()) > 0 and not x.split()[-1].isdigit() else "")
+                df["Antall_Tilbud"] = df["Beskrivelse"].apply(lambda x: x.split()[-1] if len(x.split()) > 1 and x.split()[-1].isdigit() else "")
+
+                # Oppdater beskrivelse ved å fjerne de delene som nå er delt ut i Enhet og Antall
+                df["Beskrivelse_Tilbud"] = df["Beskrivelse"].apply(lambda x: " ".join(x.split()[:-1]) if len(x.split()) > 1 else x)
+
+            elif doc_type == "Faktura":
+                df["Antall_Faktura"] = df["Beskrivelse"].apply(lambda x: x.split()[-1] if len(x.split()) > 1 and x.split()[-1].isdigit() else "")
+                df["Beskrivelse_Faktura"] = df["Beskrivelse"].apply(lambda x: " ".join(x.split()[:-1]) if len(x.split()) > 1 else x)
+
+            return df
     except Exception as e:
         st.error(f"Kunne ikke lese data fra PDF: {e}")
         return pd.DataFrame()
