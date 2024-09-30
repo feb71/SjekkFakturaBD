@@ -61,7 +61,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
                             data.append({
                                 "UnikID": unique_id,
-                                "Varenummer": item_number,
+                                "Artikkel": item_number,  # Byttet til Artikkel for faktura
                                 "Beskrivelse": description,
                                 "Antall": quantity,
                                 "Enhetspris": unit_price,
@@ -118,7 +118,7 @@ def main():
 
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
-                merged_data = pd.merge(offer_data, invoice_data, left_on="Varenummer", right_on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
+                merged_data = pd.merge(invoice_data, offer_data, how='left', left_on="Artikkel", right_on="VARENR", suffixes=('_Faktura', '_Tilbud'))
 
                 # Konverter kolonner til numerisk
                 merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
@@ -142,7 +142,7 @@ def main():
                 st.dataframe(avvik)
 
                 # Lagre kun artikkeldataene til XLSX
-                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse", "Antall", "Enhetspris", "Totalt pris"]]
+                all_items = invoice_data[["UnikID", "Artikkel", "Beskrivelse", "Antall", "Enhetspris", "Totalt pris"]]
                 
                 # Konverter DataFrame til XLSX
                 excel_data = convert_df_to_excel(all_items)
