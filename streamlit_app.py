@@ -25,68 +25,65 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
             data = []
             start_reading = False
 
-            for page in pdf.pages:
+            st.write(f"Antall sider i PDF-filen: {len(pdf.pages)}")
+
+            for page_number, page in enumerate(pdf.pages, start=1):
                 text = page.extract_text()
-                
-                # Skriv ut hele råteksten fra siden for feilsøking
-                st.write(f"Råtekst fra side {page.page_number}:")
+
+                st.write(f"Råtekst fra side {page_number}:")
                 st.write(text)
-                
+
                 if text is None:
-                    st.error(f"Ingen tekst funnet på side {page.page_number} i PDF-filen.")
+                    st.error(f"Ingen tekst funnet på side {page_number} i PDF-filen.")
                     continue
-                
+
                 lines = text.split('\n')
-                st.write(f"Leser side {page.page_number} med {len(lines)} linjer.")
-                
+                st.write(f"Leser side {page_number} med {len(lines)} linjer.")
+
                 for i, line in enumerate(lines):
                     st.write(f"Leste linje: {line}")
 
-                    # Sjekker om vi starter å lese fra VARENR
+                    # Startbetingelse for tilbud
                     if doc_type == "Tilbud" and "VARENR" in line:
                         start_reading = True
+                        st.info(f"Starter å lese tilbud fra linje {i} på side {page_number}.")
                         continue
+                    # Startbetingelse for faktura
                     elif doc_type == "Faktura" and "Artikkel" in line:
                         start_reading = True
+                        st.info(f"Starter å lese faktura fra linje {i} på side {page_number}.")
                         continue
 
                     if start_reading:
                         columns = line.split()
-                        # Sjekk om denne linjen kan være starten på en ny "VARENR"
-                        if len(columns) > 0 and columns[0].startswith('■'):
-                            if len(lines) > i + 1:
-                                next_line = lines[i + 1].split()
-                                if len(next_line) > 0 and next_line[0].isdigit():
-                                    item_number = next_line[0]  # Bruker neste linjes første verdi som VARENR
-                                    
-                                    # Sjekk om beskrivelsen, mengde, og priser finnes i denne linjen eller neste
-                                    description = " ".join(next_line[1:-3])  # Justert for å fange beskrivelsen riktig
-                                    try:
-                                        quantity = float(next_line[-3].replace('.', '').replace(',', '.'))
-                                        unit_price = float(next_line[-2].replace('.', '').replace(',', '.'))
-                                        total_price = float(next_line[-1].replace('.', '').replace(',', '.'))
-                                    except ValueError as e:
-                                        st.error(f"Kunne ikke konvertere til flyttall: {e}")
-                                        continue
+                        
+                        # Sjekk om første kolonne er et tall (altså VARENR)
+                        if len(columns) > 0 and columns[0].isdigit():
+                            varenummer = columns[0]
+                            beskrivelse = " ".join(columns[1:])
+                            
+                            # Hent andre kolonneverdier (f.eks. antall, enhetspris osv.) avhengig av layout
+                            if len(columns) >= 5:
+                                antall = columns[-4]   # Juster basert på korrekt kolonneplassering
+                                enhetspris = columns[-3]
+                                totalpris = columns[-1]
+                            else:
+                                antall = ""
+                                enhetspris = ""
+                                totalpris = ""
 
-                                    unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
-                                    data.append({
-                                        "UnikID": unique_id,
-                                        "Varenummer": item_number,
-                                        "Beskrivelse": description,
-                                        "Antall": quantity,
-                                        "Enhetspris": unit_price,
-                                        "Totalt pris": total_price,
-                                        "Type": doc_type
-                                    })
+                            data.append([invoice_number, varenummer, beskrivelse, antall, enhetspris, totalpris])
 
             if len(data) == 0:
                 st.error("Ingen data ble funnet i PDF-filen. Sjekk om layouten eller teksten blir riktig tolket.")
+            else:
+                st.success("Data ble funnet og tolket.")
                 
-            return pd.DataFrame(data)
+            return data
+
     except Exception as e:
-        st.error(f"Kunne ikke lese data fra PDF: {e}")
-        return pd.DataFrame()
+        st.error(f"Kunne ikke lese data fra PDF-filen: {e}")
+        return None
 
 
 # Funksjon for å konvertere DataFrame til en Excel-fil
