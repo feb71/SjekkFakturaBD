@@ -1,39 +1,35 @@
+import fitz  # PyMuPDF
 import pandas as pd
 import streamlit as st
-import fitz  # PyMuPDF library
+import re
 
-def extract_pdf_table(pdf_path):
-    doc = fitz.open(pdf_path)
-    data = []
+def extract_data_from_pdf(file):
+    # Åpne PDF-filen
+    doc = fitz.open(stream=file.read(), filetype="pdf")
+    data_rows = []
 
-    for page_num in range(doc.page_count):
-        page = doc.load_page(page_num)
+    for page in doc:
         text = page.get_text("text")
-        lines = text.split('\n')
+        lines = text.split("\n")
 
         for line in lines:
-            # We assume that the line contains data if it has more than a threshold number of words or certain keywords
-            parts = line.split()
-            if len(parts) > 1 and parts[0].isdigit():
-                # Assuming VARENR is a purely numeric value
-                varenr = next((part for part in parts if part.isdigit()), None)
-                
-                # Extract other relevant data from the parts of the line
-                if varenr:
-                    try:
-                        amount_index = parts.index(varenr) + 1
-                        description = " ".join(parts[amount_index:-3])  # Assuming the last 3 columns are quantity, unit, and price
-                        quantity = parts[-3]
-                        unit = parts[-2]
-                        price = parts[-1]
-                        
-                        data.append([varenr, description, quantity, unit, price])
-                    except IndexError:
-                        pass  # Skip lines that don't match the expected structure
+            # Bruk regex for å finne linjer som inneholder rene tall for VARENR
+            match = re.search(r'^\d+$', line.split()[0])
+            if match:
+                data_rows.append(line.split())
 
-    doc.close()
+    return data_rows
+
+def process_offer_data(offer_data_rows):
     columns = ["VARENR", "Beskrivelse", "Antall", "Enhet", "Pris"]
-    return pd.DataFrame(data, columns=columns)
+    data = pd.DataFrame(offer_data_rows, columns=columns)
+    
+    # Konverter VARENR til en ren numerisk kolonne og fjern ikke-numeriske verdier
+    data['VARENR'] = pd.to_numeric(data['VARENR'], errors='coerce')
+    data = data.dropna(subset=['VARENR'])
+    data['VARENR'] = data['VARENR'].astype(int)
+    
+    return data
 
 def main():
     st.title("PDF Data Extractor")
@@ -41,32 +37,23 @@ def main():
     uploaded_file = st.file_uploader("Last opp tilbuds-PDF", type="pdf")
 
     if uploaded_file is not None:
-        with open("uploaded_offer.pdf", "wb") as f:
-            f.write(uploaded_file.getbuffer())
-
-        st.write("Leser data fra PDF...")
-
-        try:
-            offer_data = extract_pdf_table("uploaded_offer.pdf")
-
+        st.info("Leser data fra PDF...")
+        
+        # Ekstraher data fra PDF
+        offer_data_rows = extract_data_from_pdf(uploaded_file)
+        
+        if offer_data_rows:
+            # Prosesser dataene
+            offer_data = process_offer_data(offer_data_rows)
+            
             if not offer_data.empty:
+                st.success("Data ble funnet og tolket.")
                 st.write("Data funnet i tilbudsfilen:")
                 st.dataframe(offer_data)
-
-                # You can implement additional processing or comparison logic here
-                # For example, save to Excel
-                offer_data.to_excel("tilbud_data.xlsx", index=False)
-                st.success("Tilbudet er lagret som tilbud_data.xlsx")
-                st.download_button(
-                    label="Last ned tilbudet som Excel",
-                    data=open("tilbud_data.xlsx", "rb"),
-                    file_name="tilbud_data.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
             else:
-                st.error("Ingen gyldige VARENR-data funnet i PDF-en.")
-        except Exception as e:
-            st.error(f"Det oppstod en feil under behandling: {e}")
+                st.error("Ingen gyldige VARENR funnet i PDF-filen.")
+        else:
+            st.error("Kunne ikke lese data fra PDF-filen. Sjekk om filene er riktige og prøv igjen.")
 
 if __name__ == "__main__":
     main()
