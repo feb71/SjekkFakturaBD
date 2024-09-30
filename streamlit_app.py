@@ -43,51 +43,45 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
 
                     if start_reading:
                         columns = line.split()
-                        if doc_type == "Tilbud" and len(columns) > 3 and columns[0].isdigit() and len(columns[0]) == 7:
-                            # Tilbud: vi forventer at første kolonne er et 7-sifret varenummer
-                            item_number = columns[0]  
-                            description = " ".join(columns[1:-3])  # Beskrivelsen er mellom VARENR og prisdetaljer
-                            try:
-                                # Fjern tusenskilletegn og konverter til float
-                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
-                            except ValueError as e:
-                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
-                                continue
-
-                            data.append({
-                                "UnikID": item_number,
-                                "Varenummer": item_number,
-                                "Beskrivelse": description,
-                                "Antall": quantity,
-                                "Enhetspris": unit_price,
-                                "Totalt pris": total_price,
-                                "Type": doc_type
-                            })
-
-                        elif doc_type == "Faktura" and len(columns) >= 5:
-                            # Faktura: bruker eksisterende logikk
-                            item_number = columns[1] 
+                        if len(columns) >= 5:  # Forventer at vi har nok kolonner i linjen
+                            item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
                             if not item_number.isdigit():
                                 continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
-                            
-                            description = " ".join(columns[2:-3])  
+                                
+                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
                             try:
-                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                if doc_type == "Tilbud":
+                                    # Juster for riktig plassering av kolonner for tilbud
+                                    quantity = float(columns[-4].replace('.', '').replace(',', '.')) if columns[-4].replace('.', '').replace(',', '').isdigit() else columns[-4]
+                                    unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                    total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                else:
+                                    quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                    unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                    total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
                             except ValueError as e:
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
 
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
+                            # Splitter beskrivelse, antall/mengde og enhet hvis det er tilbud
+                            if doc_type == "Tilbud":
+                                description_parts = description.split()
+                                unit = description_parts[-1] if len(description_parts) > 1 else ""
+                                amount = description_parts[-2] if len(description_parts) > 2 else ""
+                                desc = " ".join(description_parts[:-2]) if len(description_parts) > 2 else description
+                            else:
+                                unit = ""
+                                amount = quantity
+                                desc = description
+
                             data.append({
                                 "UnikID": unique_id,
                                 "Varenummer": item_number,
-                                "Beskrivelse": description,
-                                "Antall": quantity,
+                                "Beskrivelse": desc,
+                                "Antall": amount,
                                 "Enhetspris": unit_price,
+                                "Enhet": unit,
                                 "Totalt pris": total_price,
                                 "Type": doc_type
                             })
