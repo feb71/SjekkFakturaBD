@@ -2,6 +2,7 @@ import streamlit as st
 import pdfplumber
 import pandas as pd
 import re
+from io import BytesIO
 
 # Funksjon for å lese fakturanummer fra PDF
 def get_invoice_number(file):
@@ -41,6 +42,10 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
 
+                            # Sjekk om vi må erstatte "Artikkel" med "Varenummer"
+                            if doc_type == "Faktura" and 'Artikkel' in line:
+                                line = line.replace('Artikkel', 'Varenummer')
+
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
                             data.append({
                                 "UnikID": unique_id,
@@ -56,6 +61,14 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     except Exception as e:
         st.error(f"Kunne ikke lese data fra PDF: {e}")
         return pd.DataFrame()
+
+# Funksjon for å konvertere DataFrame til en Excel-fil
+def convert_df_to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+        writer.save()
+    return output.getvalue()
 
 # Hovedfunksjon for Streamlit-appen
 def main():
@@ -96,26 +109,25 @@ def main():
                 st.subheader("Avvik mellom Faktura og Tilbud")
                 st.dataframe(avvik)
 
-                # Lagre alle varenummer til CSV
+                # Lagre alle varenummer til XLSX
                 all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse", "Antall", "Enhetspris", "Totalt pris"]]
-                all_items.to_csv("faktura_varer.csv", index=False)
-
-                st.success("Varenummer er lagret som faktura_varer.csv")
                 
-                try:
-                    st.download_button(
-                        label="Last ned avviksrapport som Excel",
-                        data=avvik.to_excel(index=False),
-                        file_name="avvik_rapport.xlsx"
-                    )
-                except Exception as e:
-                    st.error(f"Kunne ikke eksportere avviksrapport til Excel: {e}")
+                # Konverter DataFrame til XLSX
+                excel_data = convert_df_to_excel(all_items)
+
+                st.success("Varenummer er lagret som Excel-fil.")
                 
                 st.download_button(
-                    label="Last ned alle varenummer som CSV",
-                    data=all_items.to_csv(index=False),
-                    file_name="faktura_varer.csv",
-                    mime='text/csv'
+                    label="Last ned avviksrapport som Excel",
+                    data=convert_df_to_excel(avvik),
+                    file_name="avvik_rapport.xlsx"
+                )
+                
+                st.download_button(
+                    label="Last ned alle varenummer som Excel",
+                    data=excel_data,
+                    file_name="faktura_varer.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             else:
                 st.error("Kunne ikke lese tilbudsdata fra PDF-filen.")
