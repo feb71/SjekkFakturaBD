@@ -23,7 +23,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
-            start_reading = False  # Kontrollvariabel for å starte innsamlingen av data
+            start_reading = False
 
             for page in pdf.pages:
                 text = page.extract_text()
@@ -32,43 +32,48 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                     continue
                 
                 lines = text.split('\n')
-                st.write(f"Leser side {page.page_number} med {len(lines)} linjer.")  # Skriver ut antall linjer per side
-                for line in lines:
-                    st.write(f"Leste linje: {line}")  # Legger til dette for å se hver linje
+                st.write(f"Leser side {page.page_number} med {len(lines)} linjer.")
+                
+                for i, line in enumerate(lines):
+                    st.write(f"Leste linje: {line}")
+
+                    # Sjekker om vi starter å lese fra VARENR
                     if doc_type == "Tilbud" and "VARENR" in line:
                         start_reading = True
-                        continue  # Hopp over linjen som inneholder "VARENR" til neste linje
+                        continue
                     elif doc_type == "Faktura" and "Artikkel" in line:
                         start_reading = True
-                        continue  # Hopp over linjen som inneholder "Artikkel" til neste linje
+                        continue
 
                     if start_reading:
                         columns = line.split()
-                        if len(columns) >= 5:  # Forventer at vi har nok kolonner i linjen
-                            item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
-                            if not item_number.isdigit():
-                                continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
-                                
-                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
-                            try:
-                                # Fjern tusenskilletegn og konverter til float
-                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
-                            except ValueError as e:
-                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
-                                continue
+                        # Sjekk om denne linjen kan være starten på en ny "VARENR"
+                        if len(columns) > 0 and columns[0].startswith('■'):
+                            if len(lines) > i + 1:
+                                next_line = lines[i + 1].split()
+                                if len(next_line) > 0 and next_line[0].isdigit():
+                                    item_number = next_line[0]  # Bruker neste linjes første verdi som VARENR
+                                    
+                                    # Sjekk om beskrivelsen, mengde, og priser finnes i denne linjen eller neste
+                                    description = " ".join(next_line[1:-3])  # Justert for å fange beskrivelsen riktig
+                                    try:
+                                        quantity = float(next_line[-3].replace('.', '').replace(',', '.'))
+                                        unit_price = float(next_line[-2].replace('.', '').replace(',', '.'))
+                                        total_price = float(next_line[-1].replace('.', '').replace(',', '.'))
+                                    except ValueError as e:
+                                        st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                        continue
 
-                            unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
-                            data.append({
-                                "UnikID": unique_id,
-                                "Varenummer": item_number,  # Bruker "Varenummer" for både faktura og tilbud
-                                "Beskrivelse": description,
-                                "Antall": quantity,
-                                "Enhetspris": unit_price,
-                                "Totalt pris": total_price,
-                                "Type": doc_type
-                            })
+                                    unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
+                                    data.append({
+                                        "UnikID": unique_id,
+                                        "Varenummer": item_number,
+                                        "Beskrivelse": description,
+                                        "Antall": quantity,
+                                        "Enhetspris": unit_price,
+                                        "Totalt pris": total_price,
+                                        "Type": doc_type
+                                    })
 
             if len(data) == 0:
                 st.error("Ingen data ble funnet i PDF-filen.")
