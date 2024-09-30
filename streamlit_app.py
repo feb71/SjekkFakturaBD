@@ -48,7 +48,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                     if start_reading:
                         columns = line.split()
                         if len(columns) >= 4:
-                            item_number = columns[0]
+                            item_number = columns[0]  # Forventer at dette er artikkelnummeret
                             description = " ".join(columns[1:-4])  # Justert for å fange flere kolonner i beskrivelsen
                             try:
                                 # Fjern tusenskilletegn og konverter til float
@@ -62,7 +62,6 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
                             data.append({
                                 "UnikID": unique_id,
-                                "Fakturanummer": invoice_number,
                                 "Varenummer": item_number,
                                 "Beskrivelse": description,
                                 "Antall": quantity,
