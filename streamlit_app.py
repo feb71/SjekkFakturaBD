@@ -123,9 +123,14 @@ def main():
                 st.write("Kolonner fra faktura:", invoice_data.columns)
                 st.write("Kolonner fra tilbud:", offer_data.columns)
 
+                st.write("Antall rader i tilbudsdata:", len(offer_data))
+                st.write("Antall rader i fakturadata:", len(invoice_data))
+
+
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
-                merged_data = pd.merge(invoice_data, offer_data, how='left', left_on="Varenummer", right_on="VARENR", suffixes=('_Faktura', '_Tilbud'))
+                merged_data = pd.merge(invoice_data, offer_data, how='left', left_on="Varenummer", right_on="Varenummer", suffixes=('_Faktura', '_Tilbud'))
+
 
                 # Konverter kolonner til numerisk
                 merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
