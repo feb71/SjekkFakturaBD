@@ -48,15 +48,27 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             if not item_number.isdigit():
                                 continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
                                 
-                            # Juster for beskrivelse, mengde og enhet
-                            description = " ".join(columns[2:-3])  # Beskrivelse fra kolonnene mellom varenr og de siste tre
-                            try:
-                                quantity = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
-                                unit = columns[-2]
-                                unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                            except ValueError as e:
-                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
-                                continue
+                            # Hvis det er et tilbud, behandles kolonner annerledes
+                            if doc_type == "Tilbud":
+                                description = " ".join(columns[2:-3])  # Beskrivelse fra kolonnene mellom varenr og de siste tre
+                                try:
+                                    quantity = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                    unit = columns[-2]
+                                    unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                except ValueError as e:
+                                    st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                    continue
+                            
+                            # Hvis det er en faktura, behandles kolonner som før
+                            else:
+                                description = " ".join(columns[2:-3])  
+                                try:
+                                    quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                    unit = columns[-2]
+                                    unit_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                except ValueError as e:
+                                    st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                    continue
 
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
                             data.append({
@@ -65,7 +77,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                 "Beskrivelse": description,
                                 "Antall": quantity,
                                 "Enhetspris": unit_price,
-                                "Enhet": unit,  # Legger til enhet
+                                "Enhet": unit,
                                 "Totalt pris": quantity * unit_price if isinstance(quantity, float) and isinstance(unit_price, float) else None,
                                 "Type": doc_type
                             })
