@@ -50,11 +50,12 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
 
                             description = " ".join(columns[1:-3])
                             try:
-                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                # Identifiser antall, enhetspris og totalpris
                                 total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
-
-                                # Identifiser enhet og antall korrekt ved å sjekke bakfra
+                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else None
+                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else None
+                                
+                                # Sjekk om en enhet eksisterer
                                 unit = None
                                 if columns[-4] in valid_units:
                                     unit = columns[-4]
@@ -63,10 +64,15 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                     unit = description.split()[-1]
                                     description = " ".join(description.split()[:-1])
                                 
+                                # Sjekk om siste element i beskrivelse er en mengde
                                 if description.split()[-1].replace(',', '').isdigit():
                                     quantity = float(description.split()[-1].replace(',', '.'))
                                     description = " ".join(description.split()[:-1])
 
+                                # Beregn enhetsprisen dersom den ikke er oppgitt
+                                if unit_price is None and quantity and total_price:
+                                    unit_price = round(total_price / quantity, 2)
+                                    
                             except ValueError as e:
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
