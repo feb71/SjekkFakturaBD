@@ -19,8 +19,8 @@ def extract_data_from_pdf(file):
             if len(columns) >= 5:
                 varenr = columns[0]
                 
-                # Sjekk om varenr er et gyldig tall og at det ikke inneholder punktum (for å unngå ting som 43.21.1)
-                if varenr.isdigit():
+                # Sjekk om varenr er en ren numerisk verdi uten punktum eller andre tegn
+                if re.fullmatch(r'\d+', varenr):
                     # Hent ut de relevante kolonnene basert på antall kolonner i linjen
                     beskrivelse = " ".join(columns[1:-3])
                     antall = columns[-3]
@@ -36,7 +36,7 @@ def process_offer_data(offer_data_rows):
     columns = ["VARENR", "Beskrivelse", "Antall", "Enhet", "Pris"]
     data = pd.DataFrame(offer_data_rows, columns=columns)
     
-    # Konverter VARENR til en ren numerisk kolonne og fjern ikke-numeriske verdier
+    # Konverter VARENR til en ren numerisk kolonne
     data['VARENR'] = pd.to_numeric(data['VARENR'], errors='coerce')
     data = data.dropna(subset=['VARENR'])
     data['VARENR'] = data['VARENR'].astype(int)
