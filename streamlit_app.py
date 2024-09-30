@@ -153,6 +153,10 @@ def main():
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
 
+                st.write("Kolonner i tilbudsdata:", offer_data.columns)
+                st.write("Kolonner i fakturadata:", invoice_data.columns)
+
+
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
                 merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
