@@ -47,35 +47,16 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
                             if not item_number.isdigit():
                                 continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
-                            
-                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
-
-                            if doc_type == "Faktura":
-                                # For faktura, les beskrivelse bakfra og del på siste mellomrom
-                                split_desc = description.rsplit(' ', 1)
-                                if len(split_desc) > 1:
-                                    amount = split_desc[1]
-                                    description = split_desc[0]
-                                else:
-                                    amount = columns[-3]  # Hvis ingen mellomrom, ta antall fra kolonnene
                                 
-                                try:
-                                    quantity = float(amount.replace('.', '').replace(',', '.'))
-                                    unit_price = float(columns[-2].replace('.', '').replace(',', '.'))
-                                    total_price = float(columns[-1].replace('.', '').replace(',', '.'))
-                                except ValueError as e:
-                                    st.error(f"Kunne ikke konvertere til flyttall: {e}")
-                                    continue
-
-                            else:
-                                # Justeringer for tilbudet
-                                try:
-                                    quantity = float(columns[-4].replace('.', '').replace(',', '.')) if columns[-4].replace('.', '').replace(',', '').isdigit() else columns[-4]
-                                    unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                    total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
-                                except ValueError as e:
-                                    st.error(f"Kunne ikke konvertere til flyttall: {e}")
-                                    continue
+                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
+                            try:
+                                # Fjern tusenskilletegn og konverter til float
+                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                            except ValueError as e:
+                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                continue
 
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
                             data.append({
