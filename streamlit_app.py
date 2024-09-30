@@ -13,10 +13,22 @@ def extract_data_from_pdf(file):
         lines = text.split("\n")
 
         for line in lines:
-            # Bruk regex for å finne linjer som inneholder rene tall for VARENR
-            match = re.search(r'^\d+$', line.split()[0])
-            if match:
-                data_rows.append(line.split())
+            columns = line.split()
+            
+            # Sjekker om linjen inneholder nok kolonner
+            if len(columns) >= 5:
+                varenr = columns[0]
+                
+                # Sjekk om varenr er et gyldig tall og at det ikke inneholder punktum (for å unngå ting som 43.21.1)
+                if varenr.isdigit():
+                    # Hent ut de relevante kolonnene basert på antall kolonner i linjen
+                    beskrivelse = " ".join(columns[1:-3])
+                    antall = columns[-3]
+                    enhet = columns[-2]
+                    pris = columns[-1]
+                    
+                    # Legg til i dataen
+                    data_rows.append([varenr, beskrivelse, antall, enhet, pris])
 
     return data_rows
 
