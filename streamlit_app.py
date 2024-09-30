@@ -32,8 +32,9 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                     continue
                 
                 lines = text.split('\n')
+                st.write(f"Leser side {page.page_number} med {len(lines)} linjer.")  # Skriver ut antall linjer per side
                 for line in lines:
-                    # Start innsamlingen etter å ha funnet "Artikkel" eller "VARENR" basert på dokumenttypen
+                    st.write(f"Leste linje: {line}")  # Legger til dette for å se hver linje
                     if doc_type == "Tilbud" and "VARENR" in line:
                         start_reading = True
                         continue  # Hopp over linjen som inneholder "VARENR" til neste linje
@@ -68,6 +69,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                 "Totalt pris": total_price,
                                 "Type": doc_type
                             })
+
             if len(data) == 0:
                 st.error("Ingen data ble funnet i PDF-filen.")
                 
@@ -75,6 +77,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     except Exception as e:
         st.error(f"Kunne ikke lese data fra PDF: {e}")
         return pd.DataFrame()
+
 
 # Funksjon for å konvertere DataFrame til en Excel-fil
 def convert_df_to_excel(df):
