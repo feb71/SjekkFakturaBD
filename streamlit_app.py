@@ -119,6 +119,9 @@ def main():
                     file_name="tilbud_data.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
+                # Sjekk kolonnenavn etter innlesing
+                st.write("Kolonner fra faktura:", invoice_data.columns)
+                st.write("Kolonner fra tilbud:", offer_data.columns)
 
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
