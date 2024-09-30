@@ -53,14 +53,31 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
 
+                            # Del opp beskrivelsen bakfra og plasser verdier i riktig kolonne
+                            description_parts = description.split()
+                            last_value = description_parts[-1]
+
+                            if last_value.isdigit():  # Antall finnes
+                                antall_tilbud = int(last_value)
+                                description = " ".join(description_parts[:-1])
+                                enhet = description_parts[-2] if len(description_parts) > 1 else None
+                                if enhet in ["M", "STK"]:
+                                    description = " ".join(description_parts[:-2])
+                                else:
+                                    enhet = None
+                            else:
+                                antall_tilbud = None
+                                enhet = None
+
                             data.append({
                                 "UnikID": item_number,
                                 "Varenummer": item_number,
                                 "Beskrivelse_Tilbud": description,
-                                "Antall_Tilbud": quantity,
+                                "Antall_Tilbud": antall_tilbud,
                                 "Enhetspris_Tilbud": unit_price,
                                 "Totalt pris": total_price,
-                                "Type": doc_type
+                                "Type": doc_type,
+                                "Enhet": enhet
                             })
 
                         elif doc_type == "Faktura" and len(columns) >= 5:
