@@ -47,25 +47,32 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
                             if not item_number.isdigit():
                                 continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
+                            
+                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
+
+                            if doc_type == "Faktura":
+                                # For faktura, les beskrivelse bakfra og del på siste mellomrom
+                                split_desc = description.rsplit(' ', 1)
+                                if len(split_desc) > 1:
+                                    amount = split_desc[1]
+                                    description = split_desc[0]
+                                else:
+                                    amount = columns[-3]  # Hvis ingen mellomrom, ta antall fra kolonnene
                                 
-                            # Hvis det er et tilbud, behandles kolonner annerledes
-                            if doc_type == "Tilbud":
-                                description = " ".join(columns[2:-3])  # Beskrivelse fra kolonnene mellom varenr og de siste tre
                                 try:
-                                    quantity = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
-                                    unit = columns[-2]
-                                    unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                    quantity = float(amount.replace('.', '').replace(',', '.'))
+                                    unit_price = float(columns[-2].replace('.', '').replace(',', '.'))
+                                    total_price = float(columns[-1].replace('.', '').replace(',', '.'))
                                 except ValueError as e:
                                     st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                     continue
-                            
-                            # Hvis det er en faktura, behandles kolonner som før
+
                             else:
-                                description = " ".join(columns[2:-3])  
+                                # Justeringer for tilbudet
                                 try:
-                                    quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                    unit = columns[-2]
-                                    unit_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                    quantity = float(columns[-4].replace('.', '').replace(',', '.')) if columns[-4].replace('.', '').replace(',', '').isdigit() else columns[-4]
+                                    unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                    total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
                                 except ValueError as e:
                                     st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                     continue
@@ -77,11 +84,9 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                 "Beskrivelse": description,
                                 "Antall": quantity,
                                 "Enhetspris": unit_price,
-                                "Enhet": unit,
-                                "Totalt pris": quantity * unit_price if isinstance(quantity, float) and isinstance(unit_price, float) else None,
+                                "Totalt pris": total_price,
                                 "Type": doc_type
                             })
-
             if len(data) == 0:
                 st.error("Ingen data ble funnet i PDF-filen.")
                 
