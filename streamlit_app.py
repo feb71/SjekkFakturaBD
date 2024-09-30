@@ -28,10 +28,20 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
 
             for page in pdf.pages:
                 text = page.extract_text()
+                if text is None:
+                    st.error(f"Ingen tekst funnet på side {page.page_number} i PDF-filen.")
+                    continue
+                
+                st.write(f"Leser tekst fra side {page.page_number} i PDF-filen...")  # For feilsøking
                 lines = text.split('\n')
                 for line in lines:
-                    # Sjekk når vi møter "Artikkel" og start innsamlingen derfra
-                    if "Artikkel" in line:
+                    st.write(f"Linje fra PDF: {line}")  # For feilsøking av innhold i PDF-linjen
+                    
+                    # Start innsamlingen etter å ha funnet "Artikkel" eller "VARENR" basert på dokumenttypen
+                    if doc_type == "Tilbud" and "VARENR" in line:
+                        start_reading = True
+                        continue  # Hopp over linjen som inneholder "VARENR" til neste linje
+                    elif doc_type == "Faktura" and "Artikkel" in line:
                         start_reading = True
                         continue  # Hopp over linjen som inneholder "Artikkel" til neste linje
 
@@ -60,6 +70,9 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                 "Totalt pris": total_price,
                                 "Type": doc_type
                             })
+            if len(data) == 0:
+                st.error("Ingen data ble funnet i PDF-filen.")
+                
             return pd.DataFrame(data)
     except Exception as e:
         st.error(f"Kunne ikke lese data fra PDF: {e}")
@@ -102,7 +115,7 @@ def main():
 
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
-                merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
+                merged_data = pd.merge(offer_data, invoice_data, left_on="Varenummer", right_on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
 
                 # Konverter kolonner til numerisk
                 merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
