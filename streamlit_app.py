@@ -43,14 +43,37 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
 
                     if start_reading:
                         columns = line.split()
-                        if len(columns) >= 5:  # Forventer at vi har nok kolonner i linjen
-                            item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
-                            if not item_number.isdigit():
-                                continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
-                                
-                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
+                        if doc_type == "Tilbud" and len(columns) > 3 and columns[0].isdigit() and len(columns[0]) == 7:
+                            # Tilbud: vi forventer at første kolonne er et 7-sifret varenummer
+                            item_number = columns[0]  
+                            description = " ".join(columns[1:-3])  # Beskrivelsen er mellom VARENR og prisdetaljer
                             try:
                                 # Fjern tusenskilletegn og konverter til float
+                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                            except ValueError as e:
+                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                continue
+
+                            data.append({
+                                "UnikID": item_number,
+                                "Varenummer": item_number,
+                                "Beskrivelse": description,
+                                "Antall": quantity,
+                                "Enhetspris": unit_price,
+                                "Totalt pris": total_price,
+                                "Type": doc_type
+                            })
+
+                        elif doc_type == "Faktura" and len(columns) >= 5:
+                            # Faktura: bruker eksisterende logikk
+                            item_number = columns[1] 
+                            if not item_number.isdigit():
+                                continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
+                            
+                            description = " ".join(columns[2:-3])  
+                            try:
                                 quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
                                 unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
                                 total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
