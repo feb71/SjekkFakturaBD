@@ -182,4 +182,5 @@ def main():
         else:
             st.error("Fakturanummeret ble ikke funnet i PDF-filen.")
 
-if __name__ == "__main
+if __name__ == "__main__":
+    main()
