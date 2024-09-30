@@ -1,84 +1,83 @@
 import streamlit as st
 import pandas as pd
-import tabula
+import pdfplumber
 
-# Funksjon for å sjekke om en verdi er numerisk
-def is_numeric(value):
-    try:
-        float(value)
-        return True
-    except ValueError:
-        return False
+def extract_data_from_pdf(pdf_file, source_type):
+    data_rows = []
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            tables = page.extract_tables()
+            if tables:
+                for table in tables:
+                    for row in table:
+                        # Assuming the first column contains "VARENR" when it is not empty or None
+                        if row and len(row) > 0 and row[0]:
+                            # Extracting relevant columns as per the expected layout
+                            data_rows.append(row)
+    return data_rows
 
-# Funksjon for å lese data fra PDF
-def read_pdf_data(pdf_file, is_offer=False):
-    try:
-        df_list = tabula.read_pdf(pdf_file, pages='all', multiple_tables=True, pandas_options={'header': None})
-        data = pd.concat(df_list, ignore_index=True)
-        
-        # Gi passende kolonnenavn basert på om det er faktura eller tilbud
-        if is_offer:
-            data.columns = ["VARENR", "BESKRIVELSE", "MENGDE", "ENHET", "Enhetspris_tilbud", "Beløp Materiell"]
+def process_invoice_data(data_rows):
+    # Extracting columns from the data rows into a DataFrame
+    columns = ['Varenummer', 'Beskrivelse', 'Mengde', 'Enhet', 'Enhetspris', 'Totalpris']
+    data = pd.DataFrame(data_rows, columns=columns)
+    
+    # Ensure the relevant columns are converted to numeric where applicable
+    data['Varenummer'] = pd.to_numeric(data['Varenummer'], errors='coerce')
+    data['Mengde'] = pd.to_numeric(data['Mengde'], errors='coerce')
+    data['Enhetspris'] = pd.to_numeric(data['Enhetspris'], errors='coerce')
+    data['Totalpris'] = pd.to_numeric(data['Totalpris'], errors='coerce')
+    
+    # Removing rows where 'Varenummer' might be missing or not relevant
+    data = data[data['Varenummer'].notna()]
+    
+    return data
+
+def main():
+    st.title("Sammenlign faktura og tilbud")
+    
+    # Upload PDF files
+    invoice_file = st.file_uploader("Last opp faktura (PDF)", type="pdf")
+    offer_file = st.file_uploader("Last opp tilbud (PDF)", type="pdf")
+    
+    if invoice_file:
+        st.info("Leser faktura...")
+        invoice_data_rows = extract_data_from_pdf(invoice_file, 'faktura')
+        if invoice_data_rows:
+            invoice_data = process_invoice_data(invoice_data_rows)
+            st.success("Fakturadata lest:")
+            st.write(invoice_data)
         else:
-            data.columns = ["Linje", "VARENR", "BESKRIVELSE", "MENGDE", "ENHET", "Salgspris", "Rab. %", "Beløp"]
-        
-        # Fjern unødvendige rader som ikke inneholder numeriske VARENR
-        data = data[data['VARENR'].apply(is_numeric)]
-        
-        # Konverter VARENR til string for å sikre riktig behandling
-        data['VARENR'] = data['VARENR'].astype(str)
-        return data
-    except Exception as e:
-        st.error(f"Kunne ikke lese data fra PDF: {str(e)}")
-        return pd.DataFrame()  # Returner en tom DataFrame hvis noe går galt
-
-# Last opp faktura og tilbud
-st.title("Sammenlign faktura og tilbud")
-faktura_file = st.file_uploader("Last opp faktura (PDF)", type="pdf")
-tilbud_file = st.file_uploader("Last opp tilbud (PDF)", type="pdf")
-
-if faktura_file and tilbud_file:
-    # Les fakturadata
-    faktura_data = read_pdf_data(faktura_file, is_offer=False)
-    st.write("Fakturadata:")
-    st.dataframe(faktura_data)
+            st.error("Kunne ikke lese data fra faktura PDF.")
     
-    # Les tilbudsdata
-    tilbud_data = read_pdf_data(tilbud_file, is_offer=True)
-    st.write("Tilbudsdata:")
-    st.dataframe(tilbud_data)
-    
-    if not faktura_data.empty and not tilbud_data.empty:
-        # Sammenlign tilbud og faktura basert på VARENR
-        merged_data = pd.merge(faktura_data, tilbud_data, on='VARENR', how='outer', suffixes=('_Faktura', '_Tilbud'))
+    if offer_file:
+        st.info("Leser tilbud...")
+        offer_data_rows = extract_data_from_pdf(offer_file, 'tilbud')
+        if offer_data_rows:
+            offer_data = process_invoice_data(offer_data_rows)
+            st.success("Tilbudsdata lest:")
+            st.write(offer_data)
+        else:
+            st.error("Kunne ikke lese data fra tilbud PDF.")
 
-        # Beregn avvik
-        merged_data['Avvik_Antall'] = merged_data['MENGDE_Faktura'] - merged_data['MENGDE_Tilbud']
-        merged_data['Avvik_Enhetspris'] = merged_data['Salgspris'] - merged_data['Enhetspris_tilbud']
-        merged_data['Prosent_avvik_pris'] = ((merged_data['Salgspris'] - merged_data['Enhetspris_tilbud']) / merged_data['Enhetspris_tilbud']) * 100
+    # Comparison logic
+    if invoice_file and offer_file and not invoice_data.empty and not offer_data.empty:
+        st.info("Sammenligner data...")
         
-        # Fyll inn NaN-verdier med 0 for enklere lesing
-        merged_data.fillna(0, inplace=True)
-
-        # Vis avviksrapport
-        st.write("Avviksrapport:")
-        st.dataframe(merged_data)
-
-        # Last ned-knapp for avviksrapport
-        @st.cache_data
-        def convert_df_to_excel(df):
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Avviksrapport')
-            processed_data = output.getvalue()
-            return processed_data
-
-        excel_data = convert_df_to_excel(merged_data)
-        st.download_button(
-            label="Last ned avviksrapport i Excel-format",
-            data=excel_data,
-            file_name='avviksrapport.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
+        merged_data = pd.merge(invoice_data, offer_data, how="left", left_on="Varenummer", right_on="Varenummer", suffixes=('_Faktura', '_Tilbud'))
+        
+        # Calculate deviations
+        merged_data['Avvik_Antall'] = merged_data['Mengde_Faktura'] - merged_data['Mengde_Tilbud']
+        merged_data['Avvik_Enhetspris'] = merged_data['Enhetspris_Faktura'] - merged_data['Enhetspris_Tilbud']
+        merged_data['Prosent_avvik_pris'] = (merged_data['Avvik_Enhetspris'] / merged_data['Enhetspris_Tilbud']) * 100
+        
+        # Displaying only relevant columns
+        deviation_report = merged_data[['Varenummer', 'Beskrivelse_Faktura', 'Mengde_Faktura', 'Enhetspris_Faktura', 'Totalpris_Faktura',
+                                        'Mengde_Tilbud', 'Enhetspris_Tilbud', 'Totalpris_Tilbud', 'Avvik_Antall', 'Avvik_Enhetspris', 'Prosent_avvik_pris']]
+        
+        st.success("Avviksrapport:")
+        st.write(deviation_report)
     else:
-        st.warning("Kunne ikke lese data fra PDF-filene. Sjekk om filene er riktige og prøv igjen.")
+        st.warning("Last opp både faktura og tilbud for å sammenligne.")
+
+if __name__ == "__main__":
+    main()
