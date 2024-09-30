@@ -27,6 +27,11 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
 
             for page in pdf.pages:
                 text = page.extract_text()
+                
+                # Skriv ut hele råteksten fra siden for feilsøking
+                st.write(f"Råtekst fra side {page.page_number}:")
+                st.write(text)
+                
                 if text is None:
                     st.error(f"Ingen tekst funnet på side {page.page_number} i PDF-filen.")
                     continue
@@ -76,7 +81,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                                     })
 
             if len(data) == 0:
-                st.error("Ingen data ble funnet i PDF-filen.")
+                st.error("Ingen data ble funnet i PDF-filen. Sjekk om layouten eller teksten blir riktig tolket.")
                 
             return pd.DataFrame(data)
     except Exception as e:
