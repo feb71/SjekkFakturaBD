@@ -3,3 +3,4 @@ pdfplumber
 pandas
 openpyxl
 xlsxwriter
+tabula-py
