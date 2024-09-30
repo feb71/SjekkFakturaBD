@@ -93,6 +93,15 @@ def convert_df_to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
 
+
+# Assuming you have extracted the offer data into a DataFrame named `offer_data`
+if not offer_data.empty:
+    st.write("Tabell lest fra tilbudet:")
+    st.dataframe(offer_data)
+else:
+    st.write("Ingen data ble funnet i tilbudet.")
+
+
 # Hovedfunksjon for Streamlit-appen
 def main():
     st.title("Sammenlign Faktura mot Tilbud")
