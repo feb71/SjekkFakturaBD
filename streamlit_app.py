@@ -100,6 +100,9 @@ if not offer_data.empty:
     st.dataframe(offer_data)
 else:
     st.write("Ingen data ble funnet i tilbudet.")
+    
+# Assuming offer_data is your DataFrame containing all read data
+offer_data = offer_data[offer_data['VARENR'].str.isnumeric()]
 
 
 # Hovedfunksjon for Streamlit-appen
