@@ -33,10 +33,10 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             item_number = columns[0]
                             description = " ".join(columns[1:-3])
                             try:
-                                # Sjekk om kolonnen inneholder et tall før konvertering til float
-                                quantity = float(columns[-3].replace(',', '.')) if columns[-3].replace(',', '.').replace('.', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace(',', '.')) if columns[-2].replace(',', '.').replace('.', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace(',', '.')) if columns[-1].replace(',', '.').replace('.', '').isdigit() else columns[-1]
+                                # Fjern tusenskilletegn og konverter til float
+                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
                             except ValueError as e:
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
@@ -101,11 +101,15 @@ def main():
                 all_items.to_csv("faktura_varer.csv", index=False)
 
                 st.success("Varenummer er lagret som faktura_varer.csv")
-                st.download_button(
-                    label="Last ned avviksrapport som Excel",
-                    data=avvik.to_excel(index=False),
-                    file_name="avvik_rapport.xlsx"
-                )
+                
+                try:
+                    st.download_button(
+                        label="Last ned avviksrapport som Excel",
+                        data=avvik.to_excel(index=False),
+                        file_name="avvik_rapport.xlsx"
+                    )
+                except Exception as e:
+                    st.error(f"Kunne ikke eksportere avviksrapport til Excel: {e}")
                 
                 st.download_button(
                     label="Last ned alle varenummer som CSV",
@@ -120,4 +124,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
