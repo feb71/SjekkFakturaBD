@@ -32,19 +32,15 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                         columns = line.split()
                         if len(columns) >= 4:
                             item_number = columns[0]
-                            description = " ".join(columns[1:-3])
+                            description = " ".join(columns[1:-4])  # Justert for å fange flere kolonner i beskrivelsen
                             try:
                                 # Fjern tusenskilletegn og konverter til float
-                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                quantity = float(columns[-4].replace('.', '').replace(',', '.')) if columns[-4].replace('.', '').replace(',', '').isdigit() else columns[-4]
+                                unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                total_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
                             except ValueError as e:
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
-
-                            # Sjekk om vi må erstatte "Artikkel" med "Varenummer"
-                            if doc_type == "Faktura" and 'Artikkel' in line:
-                                line = line.replace('Artikkel', 'Varenummer')
 
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
                             data.append({
