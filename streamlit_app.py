@@ -27,8 +27,10 @@ def extract_data_from_pdf(file):
                     enhet = columns[-2]
                     pris = columns[-1]
                     
-                    # Legg til i dataen
-                    data_rows.append([varenr, beskrivelse, antall, enhet, pris])
+                    # Filtrer bort rader som ikke har relevante data i beskrivelsen eller enhet
+                    if any(char.isalpha() for char in beskrivelse) and enhet.isalpha():
+                        # Legg til i dataen
+                        data_rows.append([varenr, beskrivelse, antall, enhet, pris])
 
     return data_rows
 
