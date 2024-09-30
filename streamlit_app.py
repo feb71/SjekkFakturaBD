@@ -24,11 +24,18 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
+            start_reading = False  # Legg til en kontrollvariabel for å starte innsamlingen av data
+
             for page in pdf.pages:
                 text = page.extract_text()
                 lines = text.split('\n')
                 for line in lines:
-                    if "KABELRØR" in line or "FIBERDUK" in line:
+                    # Sjekk når vi møter "Artikkel" og start innsamlingen derfra
+                    if "Artikkel" in line:
+                        start_reading = True
+                        continue  # Hopp over linjen som inneholder "Artikkel" til neste linje
+
+                    if start_reading:
                         columns = line.split()
                         if len(columns) >= 4:
                             item_number = columns[0]
