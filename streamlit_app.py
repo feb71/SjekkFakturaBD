@@ -129,8 +129,14 @@ def main():
                 # Finne avvik
                 merged_data["Avvik_Antall"] = merged_data["Antall_Faktura"] - merged_data["Antall_Tilbud"]
                 merged_data["Avvik_Enhetspris"] = merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]
+                
+                # Beregne prosentforskjellen
+                merged_data["Prosent_avvik_pris"] = ((merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]) / merged_data["Enhetspris_Tilbud"]) * 100
+
+                # Filtrer kun rader med avvik
                 avvik = merged_data[(merged_data["Avvik_Antall"].notna() & (merged_data["Avvik_Antall"] != 0)) |
-                                    (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0))]
+                                    (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0)) |
+                                    (merged_data["Prosent_avvik_pris"].notna() & (merged_data["Prosent_avvik_pris"] != 0))]
 
                 st.subheader("Avvik mellom Faktura og Tilbud")
                 st.dataframe(avvik)
