@@ -44,11 +44,9 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                     if start_reading:
                         columns = line.split()
                         if doc_type == "Tilbud" and len(columns) > 3 and columns[0].isdigit() and len(columns[0]) == 7:
-                            # Tilbud: vi forventer at første kolonne er et 7-sifret varenummer
                             item_number = columns[0]  
-                            description = " ".join(columns[1:-3])  # Beskrivelsen er mellom VARENR og prisdetaljer
+                            description = " ".join(columns[1:-3])
                             try:
-                                # Fjern tusenskilletegn og konverter til float
                                 quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
                                 unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
                                 total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
@@ -59,15 +57,14 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             data.append({
                                 "UnikID": item_number,
                                 "Varenummer": item_number,
-                                "Beskrivelse": description,
-                                "Antall": quantity,
-                                "Enhetspris": unit_price,
+                                "Beskrivelse_Tilbud": description,
+                                "Antall_Tilbud": quantity,
+                                "Enhetspris_Tilbud": unit_price,
                                 "Totalt pris": total_price,
                                 "Type": doc_type
                             })
 
                         elif doc_type == "Faktura" and len(columns) >= 5:
-                            # Faktura: bruker eksisterende logikk
                             item_number = columns[1] 
                             if not item_number.isdigit():
                                 continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
@@ -85,9 +82,9 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             data.append({
                                 "UnikID": unique_id,
                                 "Varenummer": item_number,
-                                "Beskrivelse": description,
-                                "Antall": quantity,
-                                "Enhetspris": unit_price,
+                                "Beskrivelse_Faktura": description,
+                                "Antall_Faktura": quantity,
+                                "Enhetspris_Faktura": unit_price,
                                 "Totalt pris": total_price,
                                 "Type": doc_type
                             })
@@ -98,6 +95,20 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     except Exception as e:
         st.error(f"Kunne ikke lese data fra PDF: {e}")
         return pd.DataFrame()
+
+# Funksjon for å dele opp beskrivelse basert på siste elementer
+def split_description(data, doc_type):
+    if doc_type == "Tilbud":
+        data['Antall_Tilbud'] = data['Beskrivelse_Tilbud'].str.extract(r'(\d+)$', expand=False).astype(float)
+        data['Beskrivelse_Tilbud'] = data['Beskrivelse_Tilbud'].str.replace(r'\s*\d+$', '', regex=True)
+        
+        data['Enhet'] = data['Beskrivelse_Tilbud'].str.extract(r'(\b[A-Za-z]+$)', expand=False)
+        data['Beskrivelse_Tilbud'] = data['Beskrivelse_Tilbud'].str.replace(r'\s*\b[A-Za-z]+$', '', regex=True)
+    elif doc_type == "Faktura":
+        data['Antall_Faktura'] = data['Beskrivelse_Faktura'].str.extract(r'(\d+)$', expand=False).astype(float)
+        data['Beskrivelse_Faktura'] = data['Beskrivelse_Faktura'].str.replace(r'\s*\d+$', '', regex=True)
+    
+    return data
 
 # Funksjon for å konvertere DataFrame til en Excel-fil
 def convert_df_to_excel(df):
@@ -128,10 +139,14 @@ def main():
             st.info("Laster inn tilbud...")
             offer_data = extract_data_from_pdf(offer_file, "Tilbud")
 
+            # Del opp beskrivelsen
+            if not invoice_data.empty:
+                invoice_data = split_description(invoice_data, "Faktura")
             if not offer_data.empty:
-                # Lagre tilbudet som Excel-fil
+                offer_data = split_description(offer_data, "Tilbud")
+
+            if not offer_data.empty:
                 offer_excel_data = convert_df_to_excel(offer_data)
-                
                 st.download_button(
                     label="Last ned tilbudet som Excel",
                     data=offer_excel_data,
@@ -159,11 +174,10 @@ def main():
                 st.dataframe(avvik)
 
                 # Lagre kun artikkeldataene til XLSX
-                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse", "Antall", "Enhetspris", "Totalt pris"]]
+                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse_Faktura", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris"]]
                 
-                # Konverter DataFrame til XLSX
                 excel_data = convert_df_to_excel(all_items)
-
+                
                 st.success("Varenummer er lagret som Excel-fil.")
                 
                 st.download_button(
