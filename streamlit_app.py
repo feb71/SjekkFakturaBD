@@ -105,6 +105,10 @@ def main():
             st.info("Laster inn tilbud...")
             offer_data = extract_data_from_pdf(offer_file, "Tilbud")
 
+            # Feilsøking: Skriv ut kolonnenavnene
+            st.write("Kolonner fra faktura:", invoice_data.columns)
+            st.write("Kolonner fra tilbud:", offer_data.columns)
+
             if not offer_data.empty:
                 # Lagre tilbudet som Excel-fil
                 offer_excel_data = convert_df_to_excel(offer_data)
@@ -118,11 +122,6 @@ def main():
 
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
-                
-                # Sjekk kolonner før sammenligning
-                st.write("Kolonner fra faktura:", invoice_data.columns)
-                st.write("Kolonner fra tilbud:", offer_data.columns)
-                
                 merged_data = pd.merge(invoice_data, offer_data, how='left', left_on="Varenummer", right_on="VARENR", suffixes=('_Faktura', '_Tilbud'))
 
                 # Konverter kolonner til numerisk
