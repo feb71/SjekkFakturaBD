@@ -43,17 +43,17 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
 
                     if start_reading:
                         columns = line.split()
-                        if len(columns) >= 4:
-                            item_number = columns[0]  # Forventer at dette er artikkelnummeret
+                        if len(columns) >= 5:  # Forventer at vi har nok kolonner i linjen
+                            item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
                             if not item_number.isdigit():
-                                continue  # Skipper linjer der første element ikke er et gyldig artikkelnummer
+                                continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
                                 
-                            description = " ".join(columns[1:-4])  # Fanger flere kolonner i beskrivelsen
+                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
                             try:
                                 # Fjern tusenskilletegn og konverter til float
-                                quantity = float(columns[-4].replace('.', '').replace(',', '.')) if columns[-4].replace('.', '').replace(',', '').isdigit() else columns[-4]
-                                unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
-                                total_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
                             except ValueError as e:
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
