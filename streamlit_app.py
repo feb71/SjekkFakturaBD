@@ -1,73 +1,48 @@
 import fitz  # PyMuPDF
-import pandas as pd
-import streamlit as st
-import re
 
-def extract_data_from_pdf(file):
-    # Åpne PDF-filen
-    doc = fitz.open(stream=file.read(), filetype="pdf")
-    data_rows = []
+def extract_data_from_pdf(pdf_path):
+    # Open the PDF file
+    doc = fitz.open(pdf_path)
+    extracted_data = []
 
-    for page in doc:
-        text = page.get_text("text")
-        lines = text.split("\n")
-
-        for line in lines:
-            columns = line.split()
-            
-            # Sjekker om linjen inneholder nok kolonner
-            if len(columns) >= 5:
-                varenr = columns[0]
-                
-                # Sjekk om varenr er en ren numerisk verdi uten punktum eller andre tegn
-                if re.fullmatch(r'\d+', varenr):
-                    # Hent ut de relevante kolonnene basert på antall kolonner i linjen
-                    beskrivelse = " ".join(columns[1:-3])
-                    antall = columns[-3]
-                    enhet = columns[-2]
-                    pris = columns[-1]
+    # Iterate over pages
+    for page_num in range(doc.page_count):
+        page = doc.load_page(page_num)
+        text = page.get_text("blocks")
+        
+        # Process text blocks and filter rows with valid 7-digit VARENR
+        for block in text:
+            lines = block[4].splitlines()
+            for line in lines:
+                columns = line.split()
+                # Check if the first column is a valid 7-digit number
+                if len(columns) > 0 and columns[0].isdigit() and len(columns[0]) == 7:
+                    # Extract the relevant columns for VARENR, description, etc.
+                    varenr = columns[0]
+                    description = " ".join(columns[1:-3])  # Assuming the description spans multiple columns
+                    amount = columns[-3]
+                    unit = columns[-2]
+                    price = columns[-1]
                     
-                    # Filtrer bort rader som ikke har relevante data i beskrivelsen eller enhet
-                    if any(char.isalpha() for char in beskrivelse) and enhet.isalpha():
-                        # Legg til i dataen
-                        data_rows.append([varenr, beskrivelse, antall, enhet, pris])
-
-    return data_rows
-
-def process_offer_data(offer_data_rows):
-    columns = ["VARENR", "Beskrivelse", "Antall", "Enhet", "Pris"]
-    data = pd.DataFrame(offer_data_rows, columns=columns)
+                    extracted_data.append([varenr, description, amount, unit, price])
     
-    # Konverter VARENR til en ren numerisk kolonne
-    data['VARENR'] = pd.to_numeric(data['VARENR'], errors='coerce')
-    data = data.dropna(subset=['VARENR'])
-    data['VARENR'] = data['VARENR'].astype(int)
+    # Create a DataFrame from the extracted data
+    df = pd.DataFrame(extracted_data, columns=['VARENR', 'Beskrivelse', 'Antall', 'Enhet', 'Pris'])
     
-    return data
+    return df
 
-def main():
-    st.title("PDF Data Extractor")
+# Usage example in Streamlit
+uploaded_file = st.file_uploader("Last opp tilbuds-PDF", type="pdf")
 
-    uploaded_file = st.file_uploader("Last opp tilbuds-PDF", type="pdf")
-
-    if uploaded_file is not None:
-        st.info("Leser data fra PDF...")
-        
-        # Ekstraher data fra PDF
-        offer_data_rows = extract_data_from_pdf(uploaded_file)
-        
-        if offer_data_rows:
-            # Prosesser dataene
-            offer_data = process_offer_data(offer_data_rows)
-            
-            if not offer_data.empty:
-                st.success("Data ble funnet og tolket.")
-                st.write("Data funnet i tilbudsfilen:")
-                st.dataframe(offer_data)
-            else:
-                st.error("Ingen gyldige VARENR funnet i PDF-filen.")
-        else:
-            st.error("Kunne ikke lese data fra PDF-filen. Sjekk om filene er riktige og prøv igjen.")
-
-if __name__ == "__main__":
-    main()
+if uploaded_file is not None:
+    st.info("Leser data fra PDF...")
+    offer_data = extract_data_from_pdf(uploaded_file)
+    
+    if not offer_data.empty:
+        st.success("Data ble funnet og tolket.")
+        st.dataframe(offer_data)
+        offer_data.to_excel("tilbud_data.xlsx", index=False)
+        st.success("Tilbudet er lagret som tilbud_data.xlsx")
+        st.download_button(label="Last ned tilbudet som Excel", data=open("tilbud_data.xlsx", "rb"), file_name="tilbud_data.xlsx")
+    else:
+        st.warning("Ingen gyldige VARENR ble funnet i PDF-filen.")
