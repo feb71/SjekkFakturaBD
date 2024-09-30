@@ -83,7 +83,6 @@ def convert_df_to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Sheet1')
-        writer.save()
     return output.getvalue()
 
 # Hovedfunksjon for Streamlit-appen
@@ -110,8 +109,14 @@ def main():
 
             if not offer_data.empty:
                 # Lagre tilbudet som Excel-fil
-                offer_data.to_excel("tilbud_data.xlsx", index=False)
-                st.success("Tilbudet er lagret som tilbud_data.xlsx")
+                offer_excel_data = convert_df_to_excel(offer_data)
+                
+                st.download_button(
+                    label="Last ned tilbudet som Excel",
+                    data=offer_excel_data,
+                    file_name="tilbud_data.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
 
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
