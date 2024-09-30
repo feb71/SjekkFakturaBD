@@ -47,29 +47,13 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             item_number = columns[1]  # Henter artikkelnummeret fra riktig kolonne (andre kolonne)
                             if not item_number.isdigit():
                                 continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
-                            
-                            description = " ".join(columns[2:-3])  # Justert for å fange beskrivelsen riktig
-                            
-                            # Prøv å separere Enhet, Antall og Beskrivelse fra `description`
-                            split_description = description.split()
-                            if split_description[-1].replace('.', '').isdigit():  # Hvis siste element er tall (Antall)
-                                antall = split_description.pop()  # Fjern siste element som er 'Antall'
-                            else:
-                                antall = None
-                            
-                            if len(split_description) > 0 and len(split_description[-1]) == 1:  # Hvis nest siste element er en bokstav (Enhet)
-                                enhet = split_description.pop()  # Fjern nest siste element som er 'Enhet'
-                            else:
-                                enhet = None
-                            
-                            # Det som er igjen i split_description er den faktiske Beskrivelsen
-                            actual_description = " ".join(split_description)
-                            
+                                
+                            # Juster for beskrivelse, mengde og enhet
+                            description = " ".join(columns[2:-3])  # Beskrivelse fra kolonnene mellom varenr og de siste tre
                             try:
-                                # Fjern tusenskilletegn og konverter til float
-                                quantity = float(antall.replace('.', '').replace(',', '.')) if antall and antall.replace('.', '').replace(',', '').isdigit() else antall
-                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
-                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                quantity = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                                unit = columns[-2]
+                                unit_price = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
                             except ValueError as e:
                                 st.error(f"Kunne ikke konvertere til flyttall: {e}")
                                 continue
@@ -78,13 +62,14 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                             data.append({
                                 "UnikID": unique_id,
                                 "Varenummer": item_number,
-                                "Beskrivelse": actual_description,
+                                "Beskrivelse": description,
                                 "Antall": quantity,
                                 "Enhetspris": unit_price,
-                                "Totalt pris": total_price,
-                                "Type": doc_type,
-                                "Enhet": enhet  # Legg til enhet
+                                "Enhet": unit,  # Legger til enhet
+                                "Totalt pris": quantity * unit_price if isinstance(quantity, float) and isinstance(unit_price, float) else None,
+                                "Type": doc_type
                             })
+
             if len(data) == 0:
                 st.error("Ingen data ble funnet i PDF-filen.")
                 
