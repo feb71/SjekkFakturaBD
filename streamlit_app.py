@@ -129,6 +129,10 @@ def main():
             offer_data = split_columns(offer_data, "Tilbud")
             invoice_data = split_columns(invoice_data, "Faktura")
 
+            # Legg til suffikser for å unngå konflikter under sammenligning
+            offer_data = offer_data.add_suffix('_Tilbud')
+            invoice_data = invoice_data.add_suffix('_Faktura')
+
             if not offer_data.empty:
                 # Lagre tilbudet som Excel-fil
                 offer_excel_data = convert_df_to_excel(offer_data)
@@ -142,29 +146,20 @@ def main():
 
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
-                merged_data = pd.merge(offer_data, invoice_data, left_on="Varenummer", right_on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
+                merged_data = pd.merge(offer_data, invoice_data, left_on="Varenummer_Tilbud", right_on="Varenummer_Faktura", suffixes=('_Tilbud', '_Faktura'))
 
                 st.subheader("Avvik mellom Faktura og Tilbud")
                 st.dataframe(merged_data)
 
                 # Lagre kun artikkeldataene til XLSX
-                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris"]]
-                
-                # Konverter DataFrame til XLSX
-                excel_data = convert_df_to_excel(all_items)
+                excel_data = convert_df_to_excel(merged_data)
 
                 st.success("Varenummer er lagret som Excel-fil.")
                 
                 st.download_button(
                     label="Last ned avviksrapport som Excel",
-                    data=convert_df_to_excel(merged_data),
-                    file_name="avvik_rapport.xlsx"
-                )
-                
-                st.download_button(
-                    label="Last ned alle varenummer som Excel",
                     data=excel_data,
-                    file_name="faktura_varer.xlsx",
+                    file_name="avvik_rapport.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             else:
