@@ -153,6 +153,21 @@ def main():
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
 
+
+                # Omdøp kolonner for å unngå konflikt
+                offer_data.rename(columns={
+                "Antall": "Antall_Tilbud",
+                "Enhetspris": "Enhetspris_Tilbud",
+                "Beskrivelse": "Beskrivelse_Tilbud"
+                }, inplace=True)
+
+                invoice_data.rename(columns={
+                "Antall": "Antall_Faktura",
+                "Enhetspris": "Enhetspris_Faktura",
+                "Beskrivelse": "Beskrivelse_Faktura"
+                }, inplace=True)
+
+                
                 st.write("Kolonner i tilbudsdata:", offer_data.columns)
                 st.write("Kolonner i fakturadata:", invoice_data.columns)
 
