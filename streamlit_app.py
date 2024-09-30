@@ -9,7 +9,8 @@ def get_invoice_number(file):
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
-                match = re.search(r"Fakturanummer\s*:\s*(\d+)", text)
+                st.write("PDF-tekst fra faktura:", text)  # Legg til dette for å vise hele teksten fra PDF-siden
+                match = re.search(r"Fakturanummer\s*[:\-]?\s*(\d+)", text, re.IGNORECASE)
                 if match:
                     return match.group(1)
         return None
