@@ -9,7 +9,7 @@ def get_invoice_number(file):
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
-                st.write("PDF-tekst fra faktura:", text)  # Legg til dette for å vise hele teksten fra PDF-siden
+                st.write("PDF-tekst fra faktura:", text)  # Viser hele teksten fra PDF-siden for feilsøking
                 match = re.search(r"Fakturanummer\s*[:\-]?\s*(\d+)", text, re.IGNORECASE)
                 if match:
                     return match.group(1)
@@ -32,9 +32,15 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
                         if len(columns) >= 4:
                             item_number = columns[0]
                             description = " ".join(columns[1:-3])
-                            quantity = float(columns[-3].replace(',', '.'))
-                            unit_price = float(columns[-2].replace(',', '.'))
-                            total_price = float(columns[-1].replace(',', '.'))
+                            try:
+                                # Sjekk om kolonnen inneholder et tall før konvertering til float
+                                quantity = float(columns[-3].replace(',', '.')) if columns[-3].replace(',', '.').replace('.', '').isdigit() else columns[-3]
+                                unit_price = float(columns[-2].replace(',', '.')) if columns[-2].replace(',', '.').replace('.', '').isdigit() else columns[-2]
+                                total_price = float(columns[-1].replace(',', '.')) if columns[-1].replace(',', '.').replace('.', '').isdigit() else columns[-1]
+                            except ValueError as e:
+                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                continue
+
                             unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
                             data.append({
                                 "UnikID": unique_id,
@@ -114,3 +120,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
