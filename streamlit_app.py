@@ -93,13 +93,29 @@ def convert_df_to_excel(df):
 def main():
     st.set_page_config(layout="wide")
     st.title("Sammenlign Faktura mot Tilbud")
+    # Justerer tykkelsen på kolonneoverskriftene
     st.markdown("""
     <style>
-    .dataframe th {
-        font-weight: 700 !important; /* Endre tykkelsen på overskriftene */
+        .dataframe th {
+            font-weight: bold !important;  /* Gjør kolonneoverskriftene fet */
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Justerer størrelsen, fargen og bakgrunnsfargen på kolonneoverskriftene
+st.markdown(
+    """
+    <style>
+    .css-1n76uvr thead th {
+        font-size: 18px !important;  /* Justerer skriftstørrelsen */
+        color: #FFFFFF !important;   /* Endrer fargen til hvit */
+        background-color: #333333 !important;  /* Justerer bakgrunnsfargen */
     }
     </style>
-    """,unsafe_allow_html=True)
+    """, 
+    unsafe_allow_html=True
+)
+
 
 
     # Opprett tre kolonner
