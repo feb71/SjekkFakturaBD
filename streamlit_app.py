@@ -82,8 +82,8 @@ def convert_df_to_excel(df):
 def main():
     st.title("Sammenlign Faktura mot Tilbud")
 
-    # Opprett tre kolonner med forholdet 2:7:1
-    col1, col2, col3 = st.columns([1,6, 1])
+    # Opprett tre kolonner med forholdet 1:6:1
+    col1, col2, col3 = st.columns([1, 6, 1])
 
     with col1:
         # Opplastingsseksjon for flere fakturaer
@@ -124,6 +124,17 @@ def main():
             # Sammenligne faktura mot tilbud
             st.write("Sammenligner data...")
             merged_data = pd.merge(offer_data, all_invoice_data, on="Varenummer", how="outer", suffixes=('_Tilbud', '_Faktura'))
+            # Konverter kolonner til numerisk, og håndter NaN-verdier
+            merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce').fillna(0)
+            merged_data["Antall_Tilbud"] = pd.to_numeric(merged_data["Antall_Tilbud"], errors='coerce').fillna(0)
+            merged_data["Enhetspris_Faktura"] = pd.to_numeric(merged_data["Enhetspris_Faktura"], errors='coerce').fillna(0)
+            merged_data["Enhetspris_Tilbud"] = pd.to_numeric(merged_data["Enhetspris_Tilbud"], errors='coerce').fillna(0)
+
+            # Finne avvik
+            merged_data["Avvik_Antall"] = merged_data["Antall_Faktura"] - merged_data["Antall_Tilbud"]
+            merged_data["Avvik_Enhetspris"] = merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]
+            merged_data["Prosentvis_økning"] = (merged_data["Avvik_Enhetspris"] / merged_data["Enhetspris_Tilbud"]).round(2)
+
 
             # Finne avvik
             merged_data["Avvik_Antall"] = merged_data["Antall_Faktura"] - merged_data["Antall_Tilbud"]
