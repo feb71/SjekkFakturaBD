@@ -182,12 +182,10 @@ def main():
                     file_name="faktura_varer.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
-
-              
             else:
                 st.error("Kunne ikke lese tilbudsdata fra Excel-filen.")
-            else:
-                st.error("Fakturanummeret ble ikke funnet i PDF-filen.")
+        else:
+            st.error("Fakturanummeret ble ikke funnet i PDF-filen.")
 
 if __name__ == "__main__":
     main()
