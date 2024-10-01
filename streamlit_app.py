@@ -4,7 +4,7 @@ import pandas as pd
 import re
 from io import BytesIO
 
-st.set_page_config(page_title="Streamlit App", layout="wide", initial_sidebar_state="expanded", theme="dark")
+st.set_page_config(page_title="Streamlit App", layout="wide", initial_sidebar_state="expanded")
 
 # Funksjon for å lese fakturanummer fra PDF
 def get_invoice_number(file):
