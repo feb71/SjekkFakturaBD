@@ -23,7 +23,7 @@ def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
-            start_reading = False  # Kontrollvariabel for å starte innsamlingen av data
+            start_reading = False
 
             for page in pdf.pages:
                 text = page.extract_text()
@@ -82,11 +82,6 @@ def split_description(data, doc_type):
     
     return data
 
-# Funksjon for å kopiere enhetsverdier fra tilbud til faktura
-def copy_unit_from_offer(merged_data):
-    merged_data['Enhet_Faktura'] = merged_data['Enhet_Tilbud']
-    return merged_data
-
 # Funksjon for å konvertere DataFrame til en Excel-fil
 def convert_df_to_excel(df):
     output = BytesIO()
@@ -135,10 +130,7 @@ def main():
             if not offer_data.empty:
                 # Sammenligne faktura mot tilbud
                 st.write("Sammenligner data...")
-                merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
-
-                # Kopier enhetsverdier fra tilbud til faktura
-                merged_data = copy_unit_from_offer(merged_data)
+                merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", how='outer', suffixes=('_Tilbud', '_Faktura'))
 
                 # Konverter kolonner til numerisk
                 merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
@@ -149,14 +141,21 @@ def main():
                 # Finne avvik
                 merged_data["Avvik_Antall"] = merged_data["Antall_Faktura"] - merged_data["Antall_Tilbud"]
                 merged_data["Avvik_Enhetspris"] = merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]
+                merged_data["Prosentvis_økning"] = ((merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]) / merged_data["Enhetspris_Tilbud"]) * 100
+
                 avvik = merged_data[(merged_data["Avvik_Antall"].notna() & (merged_data["Avvik_Antall"] != 0)) |
                                     (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0))]
 
                 st.subheader("Avvik mellom Faktura og Tilbud")
                 st.dataframe(avvik)
 
+                # Artikler som finnes i faktura, men ikke i tilbud
+                only_in_invoice = merged_data[merged_data['Enhetspris_Tilbud'].isna()]
+                st.subheader("Varenummer som finnes i faktura, men ikke i tilbud")
+                st.dataframe(only_in_invoice)
+
                 # Lagre kun artikkeldataene til XLSX
-                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse_Faktura", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris", "Enhet_Faktura"]]
+                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse_Faktura", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris"]]
                 
                 excel_data = convert_df_to_excel(all_items)
                 
@@ -172,6 +171,15 @@ def main():
                     label="Last ned alle varenummer som Excel",
                     data=excel_data,
                     file_name="faktura_varer.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+
+                # Lag en Excel-fil med varenummer som finnes i faktura, men ikke i tilbud
+                only_in_invoice_data = convert_df_to_excel(only_in_invoice)
+                st.download_button(
+                    label="Last ned varenummer kun i faktura som Excel",
+                    data=only_in_invoice_data,
+                    file_name="varer_kun_i_faktura.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             else:
