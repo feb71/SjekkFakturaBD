@@ -91,26 +91,35 @@ def convert_df_to_excel(df):
 
 # Hovedfunksjon for Streamlit-appen
 def main():
+    st.set_page_config(layout="wide")
     st.title("Sammenlign Faktura mot Tilbud")
 
-    # Opplastingsseksjon
-    invoice_file = st.file_uploader("Last opp faktura fra Brødrene Dahl", type="pdf")
-    offer_file = st.file_uploader("Last opp tilbud fra Brødrene Dahl (Excel)", type="xlsx")
+    # Opprett tre kolonner
+    col1, col2, col3 = st.columns([2, 7, 1])
+
+    with col1:
+        st.header("Last opp filer")
+        invoice_file = st.file_uploader("Last opp faktura fra Brødrene Dahl", type="pdf")
+        offer_file = st.file_uploader("Last opp tilbud fra Brødrene Dahl (Excel)", type="xlsx")
 
     if invoice_file and offer_file:
         # Hent fakturanummer
-        st.info("Henter fakturanummer fra faktura...")
-        invoice_number = get_invoice_number(invoice_file)
-        
+        with col1:
+            st.info("Henter fakturanummer fra faktura...")
+            invoice_number = get_invoice_number(invoice_file)
+
         if invoice_number:
-            st.success(f"Fakturanummer funnet: {invoice_number}")
+            with col1:
+                st.success(f"Fakturanummer funnet: {invoice_number}")
             
             # Ekstraher data fra PDF-filer
-            st.info("Laster inn faktura...")
+            with col1:
+                st.info("Laster inn faktura...")
             invoice_data = extract_data_from_pdf(invoice_file, "Faktura", invoice_number)
 
             # Les tilbudet fra Excel-filen
-            st.info("Laster inn tilbud fra Excel-filen...")
+            with col1:
+                st.info("Laster inn tilbud fra Excel-filen...")
             offer_data = pd.read_excel(offer_file)
 
             # Riktige kolonnenavn fra Excel-filen for tilbud
@@ -129,7 +138,8 @@ def main():
 
             if not offer_data.empty:
                 # Sammenligne faktura mot tilbud
-                st.write("Sammenligner data...")
+                with col2:
+                    st.write("Sammenligner data...")
                 merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", how='outer', suffixes=('_Tilbud', '_Faktura'))
 
                 # Konverter kolonner til numerisk
@@ -146,42 +156,43 @@ def main():
                 avvik = merged_data[(merged_data["Avvik_Antall"].notna() & (merged_data["Avvik_Antall"] != 0)) |
                                     (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0))]
 
-                st.subheader("Avvik mellom Faktura og Tilbud")
-                st.dataframe(avvik)
+                with col2:
+                    st.subheader("Avvik mellom Faktura og Tilbud")
+                    st.dataframe(avvik)
 
                 # Artikler som finnes i faktura, men ikke i tilbud
                 only_in_invoice = merged_data[merged_data['Enhetspris_Tilbud'].isna()]
-                st.subheader("Varenummer som finnes i faktura, men ikke i tilbud")
-                st.dataframe(only_in_invoice)
+                with col2:
+                    st.subheader("Varenummer som finnes i faktura, men ikke i tilbud")
+                    st.dataframe(only_in_invoice)
 
                 # Lagre kun artikkeldataene til XLSX
                 all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse_Faktura", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris"]]
                 
                 excel_data = convert_df_to_excel(all_items)
-                
-                st.success("Varenummer er lagret som Excel-fil.")
-                  
-                # Lag en Excel-fil med varenummer som finnes i faktura, men ikke i tilbud
-                only_in_invoice_data = convert_df_to_excel(only_in_invoice)
-                st.download_button(
-                    label="Last ned varenummer som ikke er i tilbudet",
-                    data=only_in_invoice_data,
-                    file_name="varer_kun_i_faktura.xlsx",
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
-               
-                st.download_button(
-                    label="Last ned avviksrapport som Excel",
-                    data=convert_df_to_excel(avvik),
-                    file_name="avvik_rapport.xlsx"
-                )
-                
-                st.download_button(
-                    label="Last ned alle varenummer som Excel",
-                    data=excel_data,
-                    file_name="faktura_varer.xlsx",
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
+
+                with col3:
+                    st.download_button(
+                        label="Last ned avviksrapport som Excel",
+                        data=convert_df_to_excel(avvik),
+                        file_name="avvik_rapport.xlsx"
+                    )
+                    
+                    st.download_button(
+                        label="Last ned alle varenummer som Excel",
+                        data=excel_data,
+                        file_name="faktura_varer.xlsx",
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    )
+
+                    # Lag en Excel-fil med varenummer som finnes i faktura, men ikke i tilbud
+                    only_in_invoice_data = convert_df_to_excel(only_in_invoice)
+                    st.download_button(
+                        label="Last ned varenummer kun i faktura som Excel",
+                        data=only_in_invoice_data,
+                        file_name="varer_kun_i_faktura.xlsx",
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    )
             else:
                 st.error("Kunne ikke lese tilbudsdata fra Excel-filen.")
         else:
