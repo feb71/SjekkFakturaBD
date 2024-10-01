@@ -23,7 +23,7 @@ def extract_data_from_pdf(file, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
-            start_reading = False  # Kontrollvariabel for å starte innsamlingen av data
+            start_reading = False
 
             for page in pdf.pages:
                 text = page.extract_text()
@@ -82,23 +82,23 @@ def convert_df_to_excel(df):
 def main():
     st.title("Sammenlign Faktura mot Tilbud")
 
-    # Opplastingsseksjon for flere fakturaer
-    invoice_files = st.file_uploader("Last opp én eller flere fakturaer fra Brødrene Dahl (PDF)", type="pdf", accept_multiple_files=True)
-    offer_file = st.file_uploader("Last opp tilbud fra Brødrene Dahl (Excel)", type="xlsx")
+    # Opprett tre kolonner med forholdet 2:7:1
+    col1, col2, col3 = st.columns([1,6, 1])
+
+    with col1:
+        # Opplastingsseksjon for flere fakturaer
+        invoice_files = st.file_uploader("Last opp én eller flere fakturaer fra Brødrene Dahl (PDF)", type="pdf", accept_multiple_files=True)
+        offer_file = st.file_uploader("Last opp tilbud fra Brødrene Dahl (Excel)", type="xlsx")
 
     if invoice_files and offer_file:
         all_invoice_data = pd.DataFrame()
 
-        # Løper gjennom hver faktura
         for invoice_file in invoice_files:
             st.info(f"Henter fakturanummer fra faktura: {invoice_file.name}")
             invoice_number = get_invoice_number(invoice_file)
             
             if invoice_number:
                 st.success(f"Fakturanummer funnet: {invoice_number}")
-                
-                # Ekstraher data fra PDF-filen
-                st.info(f"Laster inn faktura: {invoice_file.name}")
                 invoice_data = extract_data_from_pdf(invoice_file, invoice_number)
 
                 if not invoice_data.empty:
@@ -133,25 +133,29 @@ def main():
             avvik = merged_data[(merged_data["Avvik_Antall"].notna() & (merged_data["Avvik_Antall"] != 0)) |
                                 (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0))]
 
-            st.subheader("Avvik mellom Faktura og Tilbud")
-            st.dataframe(avvik)
+            with col2:
+                st.subheader("Avvik mellom Faktura og Tilbud")
+                st.dataframe(avvik)
 
-            # Lagre kun artikkeldataene til XLSX
-            excel_data = convert_df_to_excel(all_invoice_data)
+                st.subheader("Varenummer som finnes i faktura, men ikke i tilbud")
+                not_in_offer = merged_data[merged_data["Beskrivelse_Tilbud"].isna()]
+                st.dataframe(not_in_offer)
 
-            st.success("Varenummer er lagret som Excel-fil.")
-            st.download_button(
-                label="Last ned avviksrapport som Excel",
-                data=convert_df_to_excel(avvik),
-                file_name="avvik_rapport.xlsx"
-            )
+            # Nedlastingsseksjon
+            with col3:
+                excel_data = convert_df_to_excel(all_invoice_data)
+                st.download_button(
+                    label="Last ned avviksrapport som Excel",
+                    data=convert_df_to_excel(avvik),
+                    file_name="avvik_rapport.xlsx"
+                )
 
-            st.download_button(
-                label="Last ned alle varenummer som Excel",
-                data=excel_data,
-                file_name="faktura_varer.xlsx",
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+                st.download_button(
+                    label="Last ned alle varenummer som Excel",
+                    data=excel_data,
+                    file_name="faktura_varer.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
         else:
             st.error("Ingen fakturadata ble funnet.")
     else:
