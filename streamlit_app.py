@@ -188,7 +188,7 @@ def main():
                     # Lag en Excel-fil med varenummer som finnes i faktura, men ikke i tilbud
                     only_in_invoice_data = convert_df_to_excel(only_in_invoice)
                     st.download_button(
-                        label="Last ned varenummer kun i faktura som Excel",
+                        label="Last ned varenummer som ikke eksiterer i tilbudet",
                         data=only_in_invoice_data,
                         file_name="varer_kun_i_faktura.xlsx",
                         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
