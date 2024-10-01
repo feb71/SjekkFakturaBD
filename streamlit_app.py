@@ -168,6 +168,7 @@ def main():
                     data=only_in_invoice_data,
                     file_name="varer_kun_i_faktura.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
                
                 st.download_button(
                     label="Last ned avviksrapport som Excel",
@@ -183,8 +184,7 @@ def main():
                 )
 
               
-                )
-            else:
+        else:
                 st.error("Kunne ikke lese tilbudsdata fra Excel-filen.")
         else:
             st.error("Fakturanummeret ble ikke funnet i PDF-filen.")
