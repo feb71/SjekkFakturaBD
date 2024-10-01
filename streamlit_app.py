@@ -100,10 +100,10 @@ def main():
             font-weight: bold !important;  /* Gjør kolonneoverskriftene fet */
         }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# Justerer størrelsen, fargen og bakgrunnsfargen på kolonneoverskriftene
-st.markdown(
+    # Justerer størrelsen, fargen og bakgrunnsfargen på kolonneoverskriftene
+    st.markdown(
     """
     <style>
     .css-1n76uvr thead th {
@@ -113,8 +113,7 @@ st.markdown(
     }
     </style>
     """, 
-    unsafe_allow_html=True
-)
+    unsafe_allow_html=True)
 
 
 
