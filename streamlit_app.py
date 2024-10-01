@@ -1,6 +1,7 @@
 import streamlit as st
-import pandas as pd
 import pdfplumber
+import pandas as pd
+import re  # Sørg for at denne linjen er inkludert
 from io import BytesIO
 
 # Funksjon for å lese fakturanummer fra PDF
@@ -17,70 +18,98 @@ def get_invoice_number(file):
         st.error(f"Kunne ikke lese fakturanummer fra PDF: {e}")
         return None
 
-# Funksjon for å lese fakturadata fra PDF
-def extract_invoice_data(file, invoice_number):
+# Funksjon for å lese PDF-filen og hente ut relevante data
+def extract_data_from_pdf(file, doc_type, invoice_number=None):
     try:
         with pdfplumber.open(file) as pdf:
             data = []
+            start_reading = False  # Kontrollvariabel for å starte innsamlingen av data
+
             for page in pdf.pages:
                 text = page.extract_text()
-                if text:
-                    lines = text.split('\n')
-                    for line in lines:
+                if text is None:
+                    st.error(f"Ingen tekst funnet på side {page.page_number} i PDF-filen.")
+                    continue
+                
+                lines = text.split('\n')
+                for line in lines:
+                    # Start innsamlingen etter å ha funnet "Artikkel" eller "VARENR" basert på dokumenttypen
+                    if doc_type == "Tilbud" and "VARENR" in line:
+                        start_reading = True
+                        continue  # Hopp over linjen som inneholder "VARENR" til neste linje
+                    elif doc_type == "Faktura" and "Artikkel" in line:
+                        start_reading = True
+                        continue  # Hopp over linjen som inneholder "Artikkel" til neste linje
+
+                    if start_reading:
                         columns = line.split()
-                        if len(columns) >= 5:
-                            item_number = columns[1]
-                            if item_number.isdigit():
-                                description = " ".join(columns[2:-3])
-                                quantity = float(columns[-3].replace(',', '.'))
-                                unit_price = float(columns[-2].replace(',', '.'))
-                                total_price = float(columns[-1].replace(',', '.'))
-                                
-                                # Plassere riktig verdi i 'Enhet' og 'Antall'
-                                enhet = ""
-                                antall = quantity
-                                
-                                # Sjekker om 'Antall_Faktura' inneholder en enhet
-                                if isinstance(quantity, float):
-                                    if description.split()[-1].isalpha():
-                                        enhet = description.split()[-1]
-                                        description = " ".join(description.split()[:-1])
-                                
-                                unique_id = f"{invoice_number}_{item_number}"
-                                data.append({
-                                    "UnikID": unique_id,
-                                    "Varenummer": item_number,
-                                    "Beskrivelse_Faktura": description,
-                                    "Antall_Faktura": antall,
-                                    "Enhetspris_Faktura": unit_price,
-                                    "Totalt pris": total_price,
-                                    "Type": "Faktura",
-                                    "Enhet": enhet
-                                })
+                        if doc_type == "Tilbud" and len(columns) > 3 and columns[0].isdigit() and len(columns[0]) == 7:
+                            item_number = columns[0]  
+                            description = " ".join(columns[1:-3])
+                            try:
+                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                            except ValueError as e:
+                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                continue
+
+                            data.append({
+                                "UnikID": item_number,
+                                "Varenummer": item_number,
+                                "Beskrivelse_Tilbud": description,
+                                "Antall_Tilbud": quantity,
+                                "Enhetspris_Tilbud": unit_price,
+                                "Totalt pris": total_price,
+                                "Type": doc_type
+                            })
+
+                        elif doc_type == "Faktura" and len(columns) >= 5:
+                            item_number = columns[1] 
+                            if not item_number.isdigit():
+                                continue  # Skipper linjer der elementet ikke er et gyldig artikkelnummer
+                            
+                            description = " ".join(columns[2:-3])  
+                            try:
+                                quantity = float(columns[-3].replace('.', '').replace(',', '.')) if columns[-3].replace('.', '').replace(',', '').isdigit() else columns[-3]
+                                unit_price = float(columns[-2].replace('.', '').replace(',', '.')) if columns[-2].replace('.', '').replace(',', '').isdigit() else columns[-2]
+                                total_price = float(columns[-1].replace('.', '').replace(',', '.')) if columns[-1].replace('.', '').replace(',', '').isdigit() else columns[-1]
+                            except ValueError as e:
+                                st.error(f"Kunne ikke konvertere til flyttall: {e}")
+                                continue
+
+                            # Les verdien i `quantity` inn i en variabel
+                            enhet = quantity if isinstance(quantity, str) else None
+                            if enhet in ["M", "M2", "STK"]:  # Sjekker om enhet er i riktig format
+                                quantity = re.search(r'(\d+)$', description)  # Finner siste tall i beskrivelsen
+                                if quantity:
+                                    description = description[:description.rfind(str(quantity.group(1)))]  # Fjerner tall fra beskrivelsen
+                                    quantity = float(quantity.group(1))
+
+                            unique_id = f"{invoice_number}_{item_number}" if invoice_number else item_number
+                            data.append({
+                                "UnikID": unique_id,
+                                "Varenummer": item_number,
+                                "Beskrivelse_Faktura": description,
+                                "Antall_Faktura": quantity,
+                                "Enhetspris_Faktura": unit_price,
+                                "Totalt pris": total_price,
+                                "Type": doc_type,
+                                "Enhet_Faktura": enhet
+                            })
+            if len(data) == 0:
+                st.error("Ingen data ble funnet i PDF-filen.")
+                
             return pd.DataFrame(data)
     except Exception as e:
-        st.error(f"Kunne ikke lese fakturadata fra PDF: {e}")
+        st.error(f"Kunne ikke lese data fra PDF: {e}")
         return pd.DataFrame()
 
-# Funksjon for å lese tilbudsdata fra Excel
-def extract_offer_data(file):
-    try:
-        df = pd.read_excel(file)
-        df.rename(columns=lambda x: x.strip(), inplace=True)  # Fjern eventuelle ledende og etterfølgende mellomrom
-        if 'VARENR' in df.columns:
-            df.rename(columns={'VARENR': 'Varenummer', 'BESKRIVELSE': 'Beskrivelse_Tilbud', 
-                               'ANTALL': 'Antall_Tilbud', 'ENHET': 'Enhet_Tilbud',
-                               'ENHETSPRIS': 'Enhetspris_Tilbud', 'TOTALPRIS': 'Totalt pris'}, inplace=True)
-        return df
-    except Exception as e:
-        st.error(f"Kunne ikke lese tilbudsdata fra Excel: {e}")
-        return pd.DataFrame()
-
-# Funksjon for å konvertere DataFrame til Excel
+# Funksjon for å konvertere DataFrame til en Excel-fil
 def convert_df_to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Ark1')
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
 
 # Hovedfunksjon for Streamlit-appen
@@ -89,54 +118,71 @@ def main():
 
     # Opplastingsseksjon
     invoice_file = st.file_uploader("Last opp faktura fra Brødrene Dahl", type="pdf")
-    offer_file = st.file_uploader("Last opp tilbud fra Brødrene Dahl", type="xlsx")
+    offer_file = st.file_uploader("Last opp tilbud fra Brødrene Dahl (Excel)", type="xlsx")
 
     if invoice_file and offer_file:
         # Hent fakturanummer
         st.info("Henter fakturanummer fra faktura...")
         invoice_number = get_invoice_number(invoice_file)
-
+        
         if invoice_number:
             st.success(f"Fakturanummer funnet: {invoice_number}")
-
-            # Ekstraher data fra PDF og Excel
+            
+            # Ekstraher data fra PDF-filer
             st.info("Laster inn faktura...")
-            invoice_data = extract_invoice_data(invoice_file, invoice_number)
-            st.info("Laster inn tilbud...")
-            offer_data = extract_offer_data(offer_file)
+            invoice_data = extract_data_from_pdf(invoice_file, "Faktura", invoice_number)
+            st.info("Laster inn tilbud fra Excel...")
+            offer_data = pd.read_excel(offer_file)
 
-            if not offer_data.empty and not invoice_data.empty:
-                # Sammenlign faktura mot tilbud
-                st.info("Sammenligner data...")
-                merged_data = pd.merge(offer_data, invoice_data, on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
+            if not offer_data.empty:
+                offer_excel_data = convert_df_to_excel(offer_data)
+                st.download_button(
+                    label="Last ned tilbudet som Excel",
+                    data=offer_excel_data,
+                    file_name="tilbud_data.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+
+                # Sammenligne faktura mot tilbud
+                st.write("Sammenligner data...")
+                merged_data = pd.merge(offer_data, invoice_data, left_on="Varenummer", right_on="Varenummer", suffixes=('_Tilbud', '_Faktura'))
 
                 # Konverter kolonner til numerisk
-                try:
-                    merged_data["Antall_Tilbud"] = pd.to_numeric(merged_data["Antall_Tilbud"], errors='coerce')
-                    merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
-                    merged_data["Enhetspris_Tilbud"] = pd.to_numeric(merged_data["Enhetspris_Tilbud"], errors='coerce')
-                    merged_data["Enhetspris_Faktura"] = pd.to_numeric(merged_data["Enhetspris_Faktura"], errors='coerce')
+                merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce')
+                merged_data["Antall_Tilbud"] = pd.to_numeric(merged_data["Antall_Tilbud"], errors='coerce')
+                merged_data["Enhetspris_Faktura"] = pd.to_numeric(merged_data["Enhetspris_Faktura"], errors='coerce')
+                merged_data["Enhetspris_Tilbud"] = pd.to_numeric(merged_data["Enhetspris_Tilbud"], errors='coerce')
 
-                    # Finne avvik
-                    merged_data["Avvik_Antall"] = merged_data["Antall_Faktura"] - merged_data["Antall_Tilbud"]
-                    merged_data["Avvik_Enhetspris"] = merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]
-                    avvik = merged_data[(merged_data["Avvik_Antall"].notna() & (merged_data["Avvik_Antall"] != 0)) |
-                                        (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0))]
+                # Finne avvik
+                merged_data["Avvik_Antall"] = merged_data["Antall_Faktura"] - merged_data["Antall_Tilbud"]
+                merged_data["Avvik_Enhetspris"] = merged_data["Enhetspris_Faktura"] - merged_data["Enhetspris_Tilbud"]
+                avvik = merged_data[(merged_data["Avvik_Antall"].notna() & (merged_data["Avvik_Antall"] != 0)) |
+                                    (merged_data["Avvik_Enhetspris"].notna() & (merged_data["Avvik_Enhetspris"] != 0))]
 
-                    st.subheader("Avvik mellom Faktura og Tilbud")
-                    st.dataframe(avvik)
+                st.subheader("Avvik mellom Faktura og Tilbud")
+                st.dataframe(avvik)
 
-                    # Lagre avviksrapporten til Excel
-                    st.download_button(
-                        label="Last ned avviksrapport som Excel",
-                        data=convert_df_to_excel(avvik),
-                        file_name="avvik_rapport.xlsx"
-                    )
-
-                except KeyError as e:
-                    st.error(f"En nødvendig kolonne mangler i dataene: {e}")
+                # Lagre kun artikkeldataene til XLSX
+                all_items = invoice_data[["UnikID", "Varenummer", "Beskrivelse_Faktura", "Antall_Faktura", "Enhetspris_Faktura", "Totalt pris", "Enhet_Faktura"]]
+                
+                excel_data = convert_df_to_excel(all_items)
+                
+                st.success("Varenummer er lagret som Excel-fil.")
+                
+                st.download_button(
+                    label="Last ned avviksrapport som Excel",
+                    data=convert_df_to_excel(avvik),
+                    file_name="avvik_rapport.xlsx"
+                )
+                
+                st.download_button(
+                    label="Last ned alle varenummer som Excel",
+                    data=excel_data,
+                    file_name="faktura_varer.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
             else:
-                st.error("Kunne ikke lese data fra tilbuds- eller fakturafilen.")
+                st.error("Kunne ikke lese tilbudsdata fra PDF-filen.")
         else:
             st.error("Fakturanummeret ble ikke funnet i PDF-filen.")
 
