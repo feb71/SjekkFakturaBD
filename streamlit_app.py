@@ -97,7 +97,7 @@ def main():
     """
     <style>
     .dataframe th {
-        font-weight: bold !important; /* Endre tykkelsen på overskriftene */
+        font-weight: 700 !important; /* Endre tykkelsen på overskriftene */
     }
     </style>
     """,
