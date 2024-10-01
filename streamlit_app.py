@@ -184,9 +184,9 @@ def main():
                 )
 
               
-        else:
+            else:
                 st.error("Kunne ikke lese tilbudsdata fra Excel-filen.")
-        else:
+            else:
             st.error("Fakturanummeret ble ikke funnet i PDF-filen.")
 
 if __name__ == "__main__":
