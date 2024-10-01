@@ -95,7 +95,7 @@ def main():
     st.title("Sammenlign Faktura mot Tilbud")
 
     # Opprett tre kolonner
-    col1, col2, col3 = st.columns([2, 7, 1])
+    col1, col2, col3 = st.columns([2, 5, 1])
 
     with col1:
         st.header("Last opp filer")
