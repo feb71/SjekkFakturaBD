@@ -123,6 +123,20 @@ def main():
 
             # Sammenligne faktura mot tilbud
             st.write("Sammenligner data...")
+            # Filtrer faktura-data for å finne de som samsvarer med tilbudet
+            matched_data = pd.merge(invoice_data, offer_data, on="Varenummer", suffixes=('_Faktura', '_Tilbud'))
+
+            # Filtrer faktura-data for å finne de som ikke samsvarer med tilbudet
+            not_matched_data = invoice_data[~invoice_data['Varenummer'].isin(offer_data['Varenummer'])]
+
+            # Vis matched data
+            st.subheader("Avvik mellom Faktura og Tilbud")
+            st.dataframe(matched_data)
+
+            # Vis not matched data
+            st.subheader("Varenummer som finnes i faktura, men ikke i tilbud")
+            st.dataframe(not_matched_data)
+
             merged_data = pd.merge(offer_data, all_invoice_data, on="Varenummer", how="outer", suffixes=('_Tilbud', '_Faktura'))
             # Konverter kolonner til numerisk, og håndter NaN-verdier
             merged_data["Antall_Faktura"] = pd.to_numeric(merged_data["Antall_Faktura"], errors='coerce').fillna(0)
