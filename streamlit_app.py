@@ -107,7 +107,7 @@ def main():
     """
     <style>
     .css-1n76uvr thead th {
-        font-size: 24px !important;  /* Justerer skriftstørrelsen */
+        font-size: 36px !important;  /* Justerer skriftstørrelsen */
         color: #FFFFFF !important;   /* Endrer fargen til hvit */
         background-color: #333333 !important;  /* Justerer bakgrunnsfargen */
     }
