@@ -91,7 +91,7 @@ def convert_df_to_excel(df):
 
 # Hovedfunksjon for Streamlit-appen
 def main():
-    st.set_page_config(layout="wide")
+    st.set_page_config(page_title="Streamlit App", layout="wide", initial_sidebar_state="expanded", theme="dark")
     st.title("Sammenlign Faktura mot Tilbud")
     # Justerer tykkelsen på kolonneoverskriftene
     st.markdown("""
