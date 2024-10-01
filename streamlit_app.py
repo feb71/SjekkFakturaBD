@@ -93,6 +93,17 @@ def convert_df_to_excel(df):
 def main():
     st.set_page_config(layout="wide")
     st.title("Sammenlign Faktura mot Tilbud")
+    st.markdown(
+    """
+    <style>
+    .dataframe th {
+        font-weight: bold !important; /* Endre tykkelsen på overskriftene */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 
     # Opprett tre kolonner
     col1, col2, col3 = st.columns([2, 5, 1])
