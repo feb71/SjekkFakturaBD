@@ -160,7 +160,15 @@ def main():
                 excel_data = convert_df_to_excel(all_items)
                 
                 st.success("Varenummer er lagret som Excel-fil.")
-                
+                  
+                # Lag en Excel-fil med varenummer som finnes i faktura, men ikke i tilbud
+                only_in_invoice_data = convert_df_to_excel(only_in_invoice)
+                st.download_button(
+                    label="Last ned varenummer som ikke er i tilbudet",
+                    data=only_in_invoice_data,
+                    file_name="varer_kun_i_faktura.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+               
                 st.download_button(
                     label="Last ned avviksrapport som Excel",
                     data=convert_df_to_excel(avvik),
@@ -174,13 +182,7 @@ def main():
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
 
-                # Lag en Excel-fil med varenummer som finnes i faktura, men ikke i tilbud
-                only_in_invoice_data = convert_df_to_excel(only_in_invoice)
-                st.download_button(
-                    label="Last ned varenummer kun i faktura som Excel",
-                    data=only_in_invoice_data,
-                    file_name="varer_kun_i_faktura.xlsx",
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+              
                 )
             else:
                 st.error("Kunne ikke lese tilbudsdata fra Excel-filen.")
