@@ -107,7 +107,7 @@ def main():
     """
     <style>
     .css-1n76uvr thead th {
-        font-size: 18px !important;  /* Justerer skriftstørrelsen */
+        font-size: 24px !important;  /* Justerer skriftstørrelsen */
         color: #FFFFFF !important;   /* Endrer fargen til hvit */
         background-color: #333333 !important;  /* Justerer bakgrunnsfargen */
     }
@@ -118,7 +118,7 @@ def main():
 
 
     # Opprett tre kolonner
-    col1, col2, col3 = st.columns([2, 5, 1])
+    col1, col2, col3 = st.columns([1, 5, 1])
 
     with col1:
         st.header("Last opp filer")
