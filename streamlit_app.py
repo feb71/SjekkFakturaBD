@@ -4,6 +4,8 @@ import pandas as pd
 import re
 from io import BytesIO
 
+st.set_page_config(page_title="Streamlit App", layout="wide", initial_sidebar_state="expanded", theme="dark")
+
 # Funksjon for å lese fakturanummer fra PDF
 def get_invoice_number(file):
     try:
@@ -91,7 +93,6 @@ def convert_df_to_excel(df):
 
 # Hovedfunksjon for Streamlit-appen
 def main():
-    st.set_page_config(page_title="Streamlit App", layout="wide", initial_sidebar_state="expanded", theme="dark")
     st.title("Sammenlign Faktura mot Tilbud")
     # Justerer tykkelsen på kolonneoverskriftene
     st.markdown("""
